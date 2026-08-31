@@ -71,13 +71,15 @@ failures=0
 # $1 label  $2 expected exit  $3 text the output must contain  $4 status queue
 # $5 optional: 1 to have a 200 token response carry no token
 case_is() {
-    local label=$1 want_rc=$2 want=$3 queue=$4 empty=${5:-}
+    local label=$1 want_rc=$2 want=$3 queue=$4 empty=${5:-} owner_type=${6:-}
     local out="$WORK/$label.txt" rc=0
+    local args=(owner/name sha256:deadbeef)
+    [ -z "$owner_type" ] || args+=("$owner_type")
     : >"$WORK/count"
     VB_STUB_QUEUE="$queue" VB_STUB_COUNT="$WORK/count" \
         VB_STUB_EMPTY_TOKEN="$empty" VB_RETRY_DELAY=0 \
         PATH="$WORK/bin:$PATH" \
-        bash "$ROOT/anonymous-pull.sh" owner/name sha256:deadbeef \
+        bash "$ROOT/anonymous-pull.sh" "${args[@]}" \
         >"$out" 2>&1 || rc=$?
     if [ "$rc" != "$want_rc" ]; then
         echo "FAILED $label: exit $rc, want $want_rc" >&2
@@ -123,6 +125,8 @@ case_is manifest-429 1 'is unknown' '200 429 429 429'
 # the package's visibility setting.
 case_is refusal-points-at-visibility 1 'not public' '403'
 case_is outage-points-at-a-rerun     1 'rerun this' '500 500 500'
+case_is org-refusal-points-at-org-settings 1 \
+    'github.com/orgs/owner/packages/container/name/settings' '403' '' Organization
 
 # And a transient failure that clears is simply a pull that worked.
 case_is retry-then-ok 0 'anonymous pull ok' '500 200 200'

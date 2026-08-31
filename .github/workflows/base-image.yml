@@ -87,7 +87,14 @@ jobs:
         run: |
           owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           echo "IMAGE=ghcr.io/$owner/vaadinbench-base" >>"$GITHUB_ENV"
-          bash .github/scripts/base-image-reference.sh "ghcr.io/$owner/vaadinbench-base"
+          images=("ghcr.io/$owner/vaadinbench-base")
+          # GHCR packages are account-scoped and do not follow a repository
+          # transfer. The marker keeps the old public digest usable until this
+          # run has created, verified and pinned the package in the new namespace.
+          if [ -f base/previous-image-repository.txt ]; then
+            images+=("$(tr -d '[:space:]' <base/previous-image-repository.txt)")
+          fi
+          bash .github/scripts/base-image-reference.sh "${images[@]}"
 
       - uses: docker/setup-buildx-action@v3
 
@@ -188,7 +195,8 @@ jobs:
       - name: The published image is pullable by anyone
         run: |
           bash .github/scripts/anonymous-pull.sh \
-            "$OWNER/vaadinbench-base" "$LIST_DIGEST"
+            "$OWNER/vaadinbench-base" "$LIST_DIGEST" \
+            "${{ github.event.repository.owner.type }}"
 
       # The digest, into the files that decide what a task builds on. Committing it
       # is what invalidates Harbor's task-image cache, so an existing checkout picks
@@ -220,6 +228,10 @@ jobs:
             git checkout --quiet -B pin origin/main
             sed -i "s|^ARG BASE_IMAGE=.*|ARG BASE_IMAGE=$ref|" \
               tasks/*/environment/Dockerfile tasks/*/tests/Dockerfile
+            # The replacement is now both published and anonymously pullable.
+            # Retire the old namespace in the same atomic commit as the new pins,
+            # so users never see a state in which neither image works.
+            rm -f base/previous-image-repository.txt
             if git diff --quiet; then
               echo "already pinned to $ref" | tee -a "$GITHUB_STEP_SUMMARY"
               exit 0

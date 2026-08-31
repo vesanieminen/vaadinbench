@@ -130,8 +130,19 @@ jobs:
       # pull request and fail once it was already on main.
       - name: Every task builds on the one published base
         run: |
-          bash .github/scripts/base-image-reference.sh \
-            "ghcr.io/$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')/vaadinbench-base"
+          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          images=("ghcr.io/$owner/vaadinbench-base")
+          # A transfer moves the repository but not its account-scoped GHCR
+          # package. Keep the known-good digest valid while the publishing
+          # workflow creates and verifies its replacement; that workflow removes
+          # this marker in the same commit that pins the replacement.
+          if [ -f base/previous-image-repository.txt ]; then
+            images+=("$(tr -d '[:space:]' <base/previous-image-repository.txt)")
+          fi
+          bash .github/scripts/base-image-reference.sh "${images[@]}"
+
+      - name: Test the base-image reference validator
+        run: bash .github/scripts/test-base-image-reference.sh
 
       # base/stack-version.txt is the one copy of the stack version. The six task
       # Dockerfiles carry it too, but only until the first publication rewrites

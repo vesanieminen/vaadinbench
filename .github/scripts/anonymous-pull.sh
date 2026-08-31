@@ -32,11 +32,14 @@
 #
 # $1 repository, as owner/name
 # $2 reference, a tag or a sha256:… digest
+# $3 optional GitHub owner type, User (the default) or Organization; used only to
+#    print the exact package-settings URL when a pull is refused
 
 set -uo pipefail
 
 repository=${1:?repository, as owner/name}
 reference=${2:?reference, a tag or digest}
+owner_type=${3:-User}
 image="ghcr.io/$repository"
 # Seconds between attempts. Zero in the table test, which has no registry to be
 # polite to.
@@ -86,10 +89,16 @@ unverified() {
 }
 
 refused() {
+    local owner_path
+    case "$owner_type" in
+        Organization) owner_path=orgs ;;
+        User) owner_path=users ;;
+        *) owner_path=users ;;
+    esac
     echo "::error::$image@$reference cannot be pulled by an anonymous client ($1)."
     echo "::error::Either the reference names nothing, or the package is not public."
     echo "::error::Making it public is a one-time manual step, at"
-    echo "::error::  https://github.com/users/${repository%%/*}/packages/container/${repository#*/}/settings"
+    echo "::error::  https://github.com/$owner_path/${repository%%/*}/packages/container/${repository#*/}/settings"
     exit 1
 }
 

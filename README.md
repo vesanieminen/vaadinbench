@@ -24,7 +24,7 @@ You need:
 Set up the repository:
 
 ```bash
-git clone https://github.com/vesanieminen/vaadinbench
+git clone https://github.com/vaadin/vaadinbench
 cd vaadinbench
 uv sync
 ```
