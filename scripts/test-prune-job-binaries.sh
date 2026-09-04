@@ -24,6 +24,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 PRUNE="$ROOT/scripts/prune-job-binaries.sh"
 PLATFORM_PATH=agent/sessions/skills/vaadin-agent-tools/bin/platform
+OPENCODE_PATH=agent/opencode
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/vaadinbench-prune-test.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 
@@ -57,6 +58,10 @@ job_dir() {
 plant() {
     mkdir -p "$1/$PLATFORM_PATH"
     printf 'ELF\n' >"$1/$PLATFORM_PATH/vaadin-agent-tools"
+    mkdir -p "$1/$OPENCODE_PATH/xdg-data/opencode/snapshot"
+    printf 'snapshot\n' >"$1/$OPENCODE_PATH/xdg-data/opencode/snapshot/data"
+    printf '[]\n' >"$1/agent/trajectory.json"
+    printf 'OpenCode log\n' >"$1/agent/opencode.txt"
 }
 
 # $1 case label, $2 the directory named on the command line, $3 where the copy
@@ -71,13 +76,18 @@ prune_case() {
 
     if [[ $expected == gone ]]; then
         assert "$label removes the copy" test ! -e "$at/$PLATFORM_PATH"
-        assert "$label counts the removal" grep -q '^prune-job-binaries: 1 director' "$out"
+        assert "$label removes OpenCode state" test ! -e "$at/$OPENCODE_PATH"
+        assert "$label counts the removals" grep -q '^prune-job-binaries: 2 directories' "$out"
         # The copy goes and nothing above it does: bin/ is the agent's own, not
         # this script's to tidy up.
         assert "$label leaves the directory it sat in" \
             test -d "$at/${PLATFORM_PATH%/platform}"
+        assert "$label keeps the trajectory" test -f "$at/agent/trajectory.json"
+        assert "$label keeps the OpenCode log" test -f "$at/agent/opencode.txt"
     else
         assert "$label keeps the copy" test -f "$at/$PLATFORM_PATH/vaadin-agent-tools"
+        assert "$label keeps OpenCode state" \
+            test -f "$at/$OPENCODE_PATH/xdg-data/opencode/snapshot/data"
         assert "$label removes nothing" grep -q '^prune-job-binaries: 0 directories' "$out"
     fi
 }
@@ -213,6 +223,23 @@ assert "a symlinked platform directory is reported" grep -q 'is a symlink' "$WOR
 assert "a symlinked platform directory removes nothing" \
     grep -q '^prune-job-binaries: 0 directories' "$WORK/out.txt"
 
+# OpenCode's directory receives the same final-component protection.
+trial_dir "$WORK/link-opencode"
+mkdir -p "$WORK/link-opencode/agent" "$WORK/link-opencode/verifier"
+printf 'verify\n' >"$WORK/link-opencode/verifier/run.py"
+ln -s ../verifier "$WORK/link-opencode/$OPENCODE_PATH"
+rc=0
+bash "$PRUNE" "$WORK/link-opencode" >"$WORK/out.txt" 2>&1 || rc=$?
+assert "a symlinked OpenCode directory exits 0" test "$rc" -eq 0
+assert "a symlinked OpenCode directory is left alone" \
+    test -L "$WORK/link-opencode/$OPENCODE_PATH"
+assert "a symlinked OpenCode directory does not take the verifier with it" \
+    test -f "$WORK/link-opencode/verifier/run.py"
+assert "a symlinked OpenCode directory is reported" \
+    grep -q 'is a symlink' "$WORK/out.txt"
+assert "a symlinked OpenCode directory removes nothing" \
+    grep -q '^prune-job-binaries: 0 directories' "$WORK/out.txt"
+
 # In a prefix, pointing out of the directory that was named. Nothing outside it
 # is this script's to remove, whatever the path spells once it is resolved.
 trial_dir "$WORK/link-out"
@@ -251,9 +278,12 @@ trial_dir "$WORK/dry/trial"
 plant "$WORK/dry/trial"
 bash "$PRUNE" --dry-run "$WORK/dry" >"$WORK/out.txt" 2>&1
 assert "--dry-run keeps the copy" test -f "$WORK/dry/trial/$PLATFORM_PATH/vaadin-agent-tools"
+assert "--dry-run keeps OpenCode state" test -f "$WORK/dry/trial/$OPENCODE_PATH/xdg-data/opencode/snapshot/data"
 assert "--dry-run names the path" \
     grep -q "would remove $WORK/dry/trial/$PLATFORM_PATH" "$WORK/out.txt"
-assert "--dry-run says so in the summary" grep -q 'would remove 1 director' "$WORK/out.txt"
+assert "--dry-run names OpenCode state" \
+    grep -q "would remove $WORK/dry/trial/$OPENCODE_PATH" "$WORK/out.txt"
+assert "--dry-run says so in the summary" grep -q 'would remove 2 directories' "$WORK/out.txt"
 
 # The plugin prunes each trial as it ends, so a later
 # `scripts/prune-job-binaries.sh jobs` over the same tree is the ordinary case,
@@ -290,6 +320,7 @@ assert "an unknown option is reported" grep -q 'unknown option' "$WORK/out.txt"
 # printed from the script's own header — so it must not stop mid-sentence.
 bash "$PRUNE" --help >"$WORK/out.txt" 2>&1
 assert "--help explains what is removed" grep -q 'bin/platform' "$WORK/out.txt"
+assert "--help explains OpenCode state removal" grep -q 'agent/opencode' "$WORK/out.txt"
 assert "--help prints the whole header" grep -q 'removes nothing and exits 0' "$WORK/out.txt"
 assert "--help strips the comment markers" test ! -s <(grep '^#' "$WORK/out.txt")
 
