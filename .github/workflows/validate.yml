@@ -26,6 +26,9 @@ jobs:
       - name: Test the benchmark wrapper
         run: bash scripts/test-vaadin-bench.sh
 
+      - name: Test Jev triage payloads and logging
+        run: python3 scripts/test-jev-triage.py
+
       - name: Employee-list SSIM controls and variant isolation
         run: bash scripts/test-employee-list.sh
 
