@@ -142,6 +142,9 @@ jev = load("jev")
 [row] = jev.agents
 assert row.name == "codex" and row.model_name == "openai/gpt-5.6-luna"
 assert row.skills == ["conditions/jev-triage/skills"], row.skills
+assert [str(path) for path in jev.extra_instruction_paths] == [
+    "conditions/jev-triage/instruction.md"
+], jev.extra_instruction_paths
 assert row.extra_allowed_hosts == [
     "api.openai.com", "chatgpt.com", "auth.openai.com", "openrouter.ai"
 ], row.extra_allowed_hosts
