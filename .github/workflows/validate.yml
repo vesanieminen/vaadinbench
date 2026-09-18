@@ -147,8 +147,15 @@ jobs:
       # local override committed by accident would otherwise pass every check on
       # the pull request and fail once it was already on main.
       - name: Every task builds on the two published images
+        env:
+          # Pull requests in a fork still build on the canonical published
+          # stack until that fork deliberately publishes and pins its own.
+          # A publishing fork can set this repository variable to its GHCR
+          # owner; deriving it from github.repository_owner rejects the
+          # canonical pins merely because validation runs in a fork.
+          IMAGE_OWNER: ${{ vars.VAADINBENCH_IMAGE_OWNER || 'vaadin' }}
         run: |
-          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          owner=$(echo "$IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
           bash .github/scripts/base-image-reference.sh \
             "ghcr.io/$owner/vaadinbench-base" "ghcr.io/$owner/vaadinbench-agents"
 
