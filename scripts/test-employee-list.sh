@@ -6,6 +6,7 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/employee-pixels.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 cd "$ROOT"
+python3 scripts/test-view-agent-boundary.py
 python3 scripts/sync-employee-list.py --check
 python3 scripts/employee-list/test-result-summary.py
 python3 scripts/employee-list/test-app-control.py

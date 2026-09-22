@@ -17,8 +17,5 @@ decision=$(bash "$scripts/base-image-decision.sh" "$1" "$2" "$3")
 old=$(git show "$2:base/agents.Dockerfile" | sed '/^ARG BASE_IMAGE=/d') || rebuild
 current=$(sed '/^ARG BASE_IMAGE=/d' base/agents.Dockerfile)
 [ "$old" = "$current" ] || rebuild
-# Both stacks install the shared checker, including classes owned by a modern task.
-git diff --quiet "$2" HEAD -- .github/scripts/agents-image-decision.sh \
-    base/ui-check tasks/flow-employee-list-strict/tests/verifier/src/test/java \
-    tasks/flow-reports-strict/tests/verifier/src/test/java || rebuild
+git diff --quiet "$2" HEAD -- .github/scripts/agents-image-decision.sh || rebuild
 echo "reuse $published"
