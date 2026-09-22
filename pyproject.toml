@@ -10,5 +10,5 @@ requires-python = ">=3.12"
 # the runner is pinned in uv.lock the same way the stack is pinned by image
 # digest. Regenerate with `uv lock --upgrade` when deliberately moving runners.
 dependencies = [
-  "harbor>=0.21.0",
+  "harbor>=0.23.0",
 ]

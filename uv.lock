@@ -681,7 +681,7 @@ wheels = [
 
 [[package]]
 name = "harbor"
-version = "0.21.0"
+version = "0.23.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dirhash" },
@@ -689,6 +689,7 @@ dependencies = [
     { name = "filelock" },
     { name = "httpx" },
     { name = "jinja2" },
+    { name = "jsonschema" },
     { name = "litellm" },
     { name = "packaging" },
     { name = "pathspec" },
@@ -706,9 +707,9 @@ dependencies = [
     { name = "typer" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d1/30/c854dcf2b6cbc67f97265e1fd07de02b29419007d4258cded336c23d6356/harbor-0.21.0.tar.gz", hash = "sha256:93f7c2e4b150b2983a90b226c61daf071c35a9dd0f76e1053413d9ee0d738395", size = 1690211, upload-time = "2026-08-10T20:52:34.767Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2a/3a/b05d0e8752d5d531e56fbb2955f0e656c0a9b5fbcd202dbad7313b29d4df/harbor-0.23.0.tar.gz", hash = "sha256:a8b87e98db59877228bb36d2c24757cc422a3144ffaf31a1f88955c65c911e4d", size = 1907464, upload-time = "2026-09-12T04:55:11.919Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/2a/a4/b3e8aafbc0a002501c11c91958fc31a5098c2bd9376c46225af615373329/harbor-0.21.0-py3-none-any.whl", hash = "sha256:c77d779a03f1a9e8ecb3c449e17f39a9728b82238832f1fd28632eb9426c0a21", size = 1896665, upload-time = "2026-08-10T20:52:32.305Z" },
+    { url = "https://files.pythonhosted.org/packages/19/c7/607ff037dff1f40d1f941b9854742d66fd43630274fd4e7b8de8480dad34/harbor-0.23.0-py3-none-any.whl", hash = "sha256:8747400dbb2a5e2298e1338e17e88eba38433c0433fd700f34d1a9021bba5c37", size = 2142100, upload-time = "2026-09-12T04:55:10.014Z" },
 ]
 
 [[package]]
@@ -2034,7 +2035,7 @@ dependencies = [
 ]
 
 [package.metadata]
-requires-dist = [{ name = "harbor", specifier = ">=0.21.0" }]
+requires-dist = [{ name = "harbor", specifier = ">=0.23.0" }]
 
 [[package]]
 name = "websockets"
