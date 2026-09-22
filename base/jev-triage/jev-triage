@@ -45,6 +45,16 @@ def parser() -> argparse.ArgumentParser:
         help=f"Decisions model ID (default: {DEFAULT_MODEL})",
     )
     result.add_argument(
+        "--auto",
+        action="store_true",
+        help="select a concrete target/action route and print compact advice",
+    )
+    result.add_argument(
+        "--previous-report",
+        type=Path,
+        help="previous comparable report directory or report.json for a compact delta",
+    )
+    result.add_argument(
         "--endpoint",
         default=os.environ.get("OPENROUTER_DECISIONS_URL", DEFAULT_ENDPOINT),
         help=argparse.SUPPRESS,
@@ -130,7 +140,127 @@ def compact_visual(evaluation: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def request_body(report_dir: Path, report: dict[str, Any], args: argparse.Namespace) -> dict[str, Any]:
+def report_file(path: Path) -> tuple[Path, Path]:
+    resolved = path.expanduser().resolve()
+    return (resolved, resolved / "report.json") if resolved.is_dir() else (resolved.parent, resolved)
+
+
+def active_checks(report: dict[str, Any]) -> dict[str, str]:
+    return {
+        str(check.get("check")): str(check.get("status"))
+        for check in report.get("checks") or []
+        if isinstance(check, dict)
+        and check.get("check")
+        and check.get("status") not in (None, "not_run", "skipped")
+    }
+
+
+def visual_scores(report_dir: Path) -> dict[str, float]:
+    path = report_dir / "visual" / "design-evaluation.json"
+    if not path.is_file():
+        return {}
+    evaluation = read_json(path)
+    return {
+        f"{item.get('state', 'unknown')}/{item.get('region', 'unknown')}": float(item["ssim"])
+        for item in evaluation.get("visual") or []
+        if isinstance(item, dict) and isinstance(item.get("ssim"), (int, float))
+    }
+
+
+def compact_delta(
+    previous_dir: Path,
+    previous: dict[str, Any],
+    current_dir: Path,
+    current: dict[str, Any],
+) -> dict[str, Any]:
+    before = active_checks(previous)
+    after = active_checks(current)
+    shared = before.keys() & after.keys()
+    old_scores = visual_scores(previous_dir)
+    new_scores = visual_scores(current_dir)
+    score_delta = {
+        region: round(new_scores[region] - old_scores[region], 6)
+        for region in sorted(old_scores.keys() & new_scores.keys())
+        if abs(new_scores[region] - old_scores[region]) >= 0.000001
+    }
+    return {
+        key: value
+        for key, value in {
+            "previousReportDirectory": str(previous_dir),
+            "resolvedChecks": sorted(
+                check for check in shared if before[check] != "passed" and after[check] == "passed"
+            ),
+            "newFailures": sorted(
+                check for check in shared if before[check] == "passed" and after[check] != "passed"
+            ),
+            "statusChanges": {
+                check: {"before": before[check], "after": after[check]}
+                for check in sorted(shared)
+                if before[check] != after[check]
+            },
+            "ssimDelta": score_delta,
+        }.items()
+        if value not in ({}, [])
+    }
+
+
+def failed_checks(report: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        check
+        for check in report.get("checks") or []
+        if isinstance(check, dict) and check.get("status") not in (None, "passed", "not_run", "skipped")
+    ]
+
+
+def route_actions(check: dict[str, Any], visual: dict[str, Any] | None) -> tuple[str, str]:
+    name = str(check.get("check") or "unknown")
+    group = str(check.get("group") or "")
+    evidence = " ".join(str(item) for item in check.get("failures") or []).lower()
+    if any(word in evidence for word in ("404", "failed to load", "build", "network")):
+        return "inspect_runtime_logs", "restart_and_recapture"
+    if "intercepts pointer events" in evidence or group == "responsive":
+        return "inspect_dom_measurements", "inspect_css"
+    if "component" in name.lower() or "accessible" in name.lower():
+        return "inspect_components", "inspect_application_state"
+    if group == "visual":
+        measurements = (visual or {}).get("failedDesignMeasurements") or []
+        return (
+            ("inspect_css", "inspect_dom_measurements")
+            if measurements
+            else ("inspect_visual_crops", "inspect_css")
+        )
+    if any(word in evidence for word in ("count", "expected", "received", "state", "filter")):
+        return "inspect_application_state", "inspect_components"
+    return "inspect_components", "inspect_runtime_logs"
+
+
+def route_question(report: dict[str, Any], visual: dict[str, Any] | None) -> dict[str, Any]:
+    criteria: dict[str, str] = {}
+    for check in failed_checks(report):
+        target = str(check.get("check") or "unknown")
+        for action in route_actions(check, visual):
+            key = f"{target}__{action}"
+            criteria[key] = f"Target {target}; take the bounded action {action}."
+    if not criteria:
+        criteria["report__inspect_runtime_logs"] = (
+            "Target the report-level failure; inspect runtime and checker logs."
+        )
+    return {
+        "type": "choice",
+        "instructions": (
+            "Which concrete target/action route should the coding agent take next? "
+            "Prefer the cheapest route that addresses the highest-priority unresolved failure."
+        ),
+        "criteria": criteria,
+    }
+
+
+def request_body(
+    report_dir: Path,
+    report: dict[str, Any],
+    args: argparse.Namespace,
+    previous: tuple[Path, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     state: dict[str, Any] = {
         "source": "VaadinBench ui-check",
         "reportDirectory": str(report_dir),
@@ -141,6 +271,41 @@ def request_body(report_dir: Path, report: dict[str, Any], args: argparse.Namesp
         state["visualEvaluation"] = compact_visual(read_json(visual_path))
     if args.last_action:
         state["lastAction"] = args.last_action
+    if previous is not None:
+        state["comparison"] = compact_delta(previous[0], previous[1], report_dir, report)
+    if args.auto:
+        visual = state.get("visualEvaluation")
+        return {
+            "model": args.model,
+            "state": state,
+            "questions": {
+                "failure_family": {
+                    "type": "choice",
+                    "instructions": "Which family best describes the selected route's target?",
+                    "criteria": {
+                        "layout_geometry": "Incorrect bounds, spacing, alignment, size, scroll, or overflow",
+                        "typography": "Incorrect font family, size, weight, line height, or text metrics",
+                        "colour_theme": "Incorrect foreground, background, border, radius, or theme token",
+                        "content_state": "Incorrect text, fixture data, selection, filtering, or application state",
+                        "component_structure": "Wrong, missing, hidden, or uninitialized Vaadin component or shadow structure",
+                        "interaction": "Click, keyboard, callback, pointer-event, or control behavior failure",
+                        "capture_instability": "Consecutive captures differ or rendering has not settled",
+                        "screenshot_substitution": "A screenshot, overlay, canvas, or large painted image replaces real UI",
+                        "infrastructure": "Startup, build, browser, network, checker, or environment failure",
+                    },
+                },
+                "next_route": route_question(
+                    report, visual if isinstance(visual, dict) else None
+                ),
+                "needs_visual_inspection": {
+                    "type": "noul",
+                    "instructions": (
+                        "Are the supplied numeric and textual diagnostics insufficient, so a vision-capable "
+                        "agent should inspect expected, actual, and diff PNGs before editing?"
+                    ),
+                },
+            },
+        }
     return {
         "model": args.model,
         "state": state,
@@ -261,33 +426,81 @@ def format_answer(name: str, answer: dict[str, Any]) -> str:
     return f"{name}: {json.dumps(answer, sort_keys=True)}"
 
 
+def compact_auto_output(answers: dict[str, Any]) -> list[str]:
+    route = answers.get("next_route") if isinstance(answers.get("next_route"), dict) else {}
+    choice = str(route.get("choice") or "unknown__unknown")
+    target, separator, action = choice.partition("__")
+    if not separator:
+        target, action = "unknown", choice
+    probabilities = route.get("probabilities") if isinstance(route.get("probabilities"), dict) else {}
+    selected_probability = probabilities.get(choice)
+    ranked = sorted(
+        ((key, value) for key, value in probabilities.items() if isinstance(value, (int, float))),
+        key=lambda item: item[1],
+        reverse=True,
+    )
+    family = answers.get("failure_family") if isinstance(answers.get("failure_family"), dict) else {}
+    family_choice = str(family.get("choice") or "unknown")
+    family_probability = (
+        family.get("probabilities", {}).get(family_choice)
+        if isinstance(family.get("probabilities"), dict)
+        else None
+    )
+    visual = answers.get("needs_visual_inspection")
+    visual_probability = visual.get("noul") if isinstance(visual, dict) else None
+
+    def probability(value: Any) -> str:
+        return f" ({value:.3f})" if isinstance(value, (int, float)) else ""
+
+    lines = [
+        f"target: {target}",
+        f"family: {family_choice}{probability(family_probability)}",
+        f"action: {action}{probability(selected_probability)}",
+    ]
+    runner_up = next((item for item in ranked if item[0] != choice), None)
+    if runner_up is not None:
+        other_target, other_separator, other_action = runner_up[0].partition("__")
+        label = (
+            f"{other_target} / {other_action}" if other_separator else runner_up[0]
+        )
+        lines.append(f"runner_up: {label} ({runner_up[1]:.3f})")
+    lines.append(
+        "visual_inspection: "
+        + (f"{visual_probability:.3f}" if isinstance(visual_probability, (int, float)) else "unknown")
+    )
+    return lines
+
+
 def main(argv: list[str]) -> int:
     args = parser().parse_args(argv)
     api_key = os.environ.get("OPENROUTER_API_KEY")
     if not api_key:
         print("jev-triage: OPENROUTER_API_KEY is required", file=sys.stderr)
         return 2
-    report_path = args.report.expanduser().resolve()
-    if report_path.is_dir():
-        report_dir = report_path
-        report_path = report_dir / "report.json"
-    else:
-        report_dir = report_path.parent
+    report_dir, report_path = report_file(args.report)
     try:
         report = read_json(report_path)
-        body = request_body(report_dir, report, args)
+        previous = None
+        if args.previous_report:
+            previous_dir, previous_path = report_file(args.previous_report)
+            previous = (previous_dir, read_json(previous_path))
+        body = request_body(report_dir, report, args, previous)
         response = post(args.endpoint, api_key, body, args.timeout)
         path = write_log(log_directory(args.output), body, response)
     except (ValueError, RuntimeError, OSError) as error:
         print(f"jev-triage: {error}", file=sys.stderr)
         return 1
     answers = response["answers"]
-    for name in ("failure_family", "next_action", "needs_visual_inspection"):
-        answer = answers.get(name)
-        if isinstance(answer, dict):
-            print(format_answer(name, answer))
-        else:
-            print(f"{name}: missing")
+    if args.auto:
+        for line in compact_auto_output(answers):
+            print(line)
+    else:
+        for name in ("failure_family", "next_action", "needs_visual_inspection"):
+            answer = answers.get(name)
+            if isinstance(answer, dict):
+                print(format_answer(name, answer))
+            else:
+                print(f"{name}: missing")
     print(f"Log: {path}")
     print("Advisory only: ui-check remains the source of pass/fail truth.")
     return 0
