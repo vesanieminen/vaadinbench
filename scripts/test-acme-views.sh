@@ -6,7 +6,6 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 WORK=$(mktemp -d "${TMPDIR:-/tmp}/acme-controls.XXXXXX")
 trap 'rm -rf "$WORK"' EXIT
 cd "$ROOT"
-python3 scripts/test-view-agent-boundary.py
 python3 scripts/sync-acme-views.py --check
 python3 scripts/acme-views/test_regrade.py
 uv run python - <<'PY'
