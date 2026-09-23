@@ -1,0 +1,8 @@
+{
+  "name": "vaadinbench-employee-browser-tools",
+  "private": true,
+  "version": "1.0.0",
+  "dependencies": {
+    "@playwright/cli": "0.1.19"
+  }
+}

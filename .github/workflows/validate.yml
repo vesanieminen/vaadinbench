@@ -32,6 +32,9 @@ jobs:
       - name: ACME views SSIM controls and variant isolation
         run: bash scripts/test-acme-views.sh
 
+      - name: Figma Reports live MCP configuration and variant isolation
+        run: bash scripts/test-figma-reports.sh
+
       # What a task promises about the boundary lives in its task.toml, and the
       # runner is the authority on what those promises resolve to — so load every
       # task through the pinned Harbor rather than pattern-matching the file.

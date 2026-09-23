@@ -1,0 +1,96 @@
+{
+  "regions": [
+    "Nordics",
+    "Central Europe"
+  ],
+  "rows": [
+    {
+      "id": "r01",
+      "country": "Deutschland",
+      "month": "March 2026",
+      "region": "Central Europe",
+      "unread": true,
+      "image": "deutschland.png"
+    },
+    {
+      "id": "r02",
+      "country": "Czechia",
+      "month": "March 2026",
+      "region": "Central Europe",
+      "unread": true,
+      "image": "czechia.png"
+    },
+    {
+      "id": "r03",
+      "country": "Sweden",
+      "month": "March 2026",
+      "region": "Nordics",
+      "unread": false,
+      "image": "sweden.png"
+    },
+    {
+      "id": "r04",
+      "country": "Austria",
+      "month": "March 2026",
+      "region": "Central Europe",
+      "unread": false,
+      "image": "austria.png"
+    },
+    {
+      "id": "r05",
+      "country": "Finland",
+      "month": "March 2026",
+      "region": "Nordics",
+      "unread": false,
+      "image": "finland.png"
+    },
+    {
+      "id": "r06",
+      "country": "Deutschland",
+      "month": "February 2026",
+      "region": "Central Europe",
+      "unread": false,
+      "image": "deutschland.png"
+    },
+    {
+      "id": "r07",
+      "country": "Czechia",
+      "month": "February 2026",
+      "region": "Central Europe",
+      "unread": false,
+      "image": "czechia.png"
+    },
+    {
+      "id": "r08",
+      "country": "Norway",
+      "month": "February 2026",
+      "region": "Nordics",
+      "unread": false,
+      "image": "norway.png"
+    },
+    {
+      "id": "r09",
+      "country": "Sweden",
+      "month": "February 2026",
+      "region": "Nordics",
+      "unread": false,
+      "image": "sweden.png"
+    },
+    {
+      "id": "r10",
+      "country": "Austria",
+      "month": "February 2026",
+      "region": "Central Europe",
+      "unread": false,
+      "image": "austria.png"
+    },
+    {
+      "id": "r11",
+      "country": "Finland",
+      "month": "February 2026",
+      "region": "Nordics",
+      "unread": false,
+      "image": "finland.png"
+    }
+  ]
+}
