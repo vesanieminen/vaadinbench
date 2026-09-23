@@ -144,8 +144,12 @@ jobs:
       # local override committed by accident would otherwise pass every check on
       # the pull request and fail once it was already on main.
       - name: Every task builds on the two published images
+        # Forks inherit the upstream pins until they publish their own images.
+        # Set BASE_IMAGE_OWNER when switching the committed pins to another owner.
+        env:
+          BASE_IMAGE_OWNER: ${{ vars.BASE_IMAGE_OWNER || 'vaadin' }}
         run: |
-          owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          owner=$(echo "$BASE_IMAGE_OWNER" | tr '[:upper:]' '[:lower:]')
           bash .github/scripts/base-image-reference.sh \
             "ghcr.io/$owner/vaadinbench-base" "ghcr.io/$owner/vaadinbench-agents"
 
