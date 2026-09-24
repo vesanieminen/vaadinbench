@@ -18,6 +18,11 @@ RUN npm install -g @playwright/cli@${PLAYWRIGHT_CLI_VERSION} \
     && playwright-cli install-browser chromium --with-deps \
     && playwright-cli --help
 
+# Official companion skill: Codex/OpenCode use .agents, Claude Code uses .claude.
+# Global installation keeps the skill outside the submitted application.
+RUN playwright-cli install --skills=agents --global \
+    && playwright-cli install --skills=claude --global
+
 ARG BASE_SHA=96d5793d384545b2de5db7096f6ebc246b1336b9
 
 WORKDIR /
