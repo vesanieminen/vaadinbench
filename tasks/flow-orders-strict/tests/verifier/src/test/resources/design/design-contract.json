@@ -10,14 +10,8 @@
     "fontRenderHinting": "none"
   },
   "provenance": {
-    "figma": {
-      "fileKey": "101wCrY8D6osNDjIMcLcSP",
-      "page": "6377:6990",
-      "frame": "9094:26504",
-      "export": "PNG SCALE 2."
-    },
     "references": {
-      "orders.png": "9c197a638298a21bc1dff8c0a39c319ad5575e24270714c428df0688dc08e67a"
+      "orders.png": "782cd27086a78aab732bfbaf92b6900f9fc2d9523e9adae0046d9891ea991fd0"
     },
     "geometry": "Measured bounds in CSS pixels relative to the supplied reference image.",
     "typography": "Font families, sizes and weights recorded from the source design: Noto Sans shell and Instrument Sans cards; Payroll filters use Instrument Sans.",
