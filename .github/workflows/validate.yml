@@ -301,6 +301,15 @@ jobs:
                 status=1
                 continue
               fi
+              # Catch stale recording hashes before the verifier image build.
+              # The same check remains in the Dockerfile for direct Harbor runs.
+              if [ -f "$task/tests/check-recording.py" ] && \
+                 ! python3 "$task/tests/check-recording.py" "$generated" \
+                     "$task/tests/expected-files.txt"; then
+                echo "::error::$name: regenerate expected-files.txt after refreshing the recording"
+                status=1
+                continue
+              fi
               # 1. The verifier builds with the generated pom plus exactly the
               #    declared additions, so its one difference stays reviewable.
               rm -rf /tmp/generated && mkdir -p /tmp/generated
