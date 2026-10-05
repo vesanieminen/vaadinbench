@@ -18,4 +18,6 @@ old=$(git show "$2:base/agents.Dockerfile" | sed '/^ARG BASE_IMAGE=/d') || rebui
 current=$(sed '/^ARG BASE_IMAGE=/d' base/agents.Dockerfile)
 [ "$old" = "$current" ] || rebuild
 git diff --quiet "$2" HEAD -- .github/scripts/agents-image-decision.sh || rebuild
+# The ballast MCP server and its manifests are copied into the agents image.
+git diff --quiet "$2" HEAD -- base/mcp-ballast || rebuild
 echo "reuse $published"

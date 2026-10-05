@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "command": "python3",
+      "args": [
+        "/opt/vaadinbench/mcp-ballast/server.py",
+        "sequential-thinking"
+      ]
+    }
+  }
+}

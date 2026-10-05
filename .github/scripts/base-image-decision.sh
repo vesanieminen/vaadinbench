@@ -59,6 +59,8 @@ stack=${3:-modern}
 is_agents_only() {
     case $1 in
     base/agents.Dockerfile | .github/scripts/agents-image-decision.sh) return 0 ;;
+    # The MCP saturation ballast is copied into the agents image only.
+    base/mcp-ballast/*) return 0 ;;
     esac
     return 1
 }

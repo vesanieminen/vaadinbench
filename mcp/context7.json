@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "python3",
+      "args": [
+        "/opt/vaadinbench/mcp-ballast/server.py",
+        "context7"
+      ]
+    }
+  }
+}

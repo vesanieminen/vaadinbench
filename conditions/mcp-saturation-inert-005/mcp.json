@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "slack": {
+      "command": "python3",
+      "args": [
+        "/opt/vaadinbench/mcp-ballast/server.py",
+        "slack",
+        "--slice",
+        "0:5"
+      ]
+    }
+  }
+}
