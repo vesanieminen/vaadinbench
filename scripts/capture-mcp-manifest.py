@@ -114,6 +114,30 @@ def capture_stdio(command: list[str], timeout: float) -> tuple[dict, list[dict]]
         process.kill()
 
 
+def sse_reply(response, request_id: object, deadline: float) -> dict:
+    """The JSON-RPC message answering `request_id`, read event by event from a
+    text/event-stream response. A server may keep the stream open after it has
+    answered (the transport says it SHOULD close, not MUST), so this returns as
+    soon as the answer has arrived instead of waiting for the end of the body.
+    Each read is bounded by the socket timeout; the whole wait by `deadline`."""
+    data: list[str] = []
+    while time.monotonic() < deadline:
+        raw = response.readline()
+        if not raw:
+            break
+        line = raw.decode().rstrip("\r\n")
+        if line.startswith("data:"):
+            data.append(line[5:].removeprefix(" "))
+            continue
+        if line or not data:
+            continue  # another field (event:, id:, retry:), or a comment
+        message = json.loads("\n".join(data))
+        data = []
+        if isinstance(message, dict) and message.get("id") == request_id:
+            return message
+    sys.exit(f"capture: no reply to request {request_id} in the event stream")
+
+
 def capture_http(url: str, timeout: float) -> tuple[dict, list[dict]]:
     session: str | None = None
 
@@ -127,19 +151,15 @@ def capture_http(url: str, timeout: float) -> tuple[dict, list[dict]]:
         if session:
             headers["Mcp-Session-Id"] = session
         request = urllib.request.Request(url, json.dumps(message).encode(), headers)
+        deadline = time.monotonic() + timeout
         with urllib.request.urlopen(request, timeout=timeout) as response:
             session = response.headers.get("Mcp-Session-Id") or session
-            body = response.read().decode()
             if "id" not in message:
                 return None
             if response.headers.get_content_type() == "text/event-stream":
-                for line in body.splitlines():
-                    if line.startswith("data:"):
-                        data = json.loads(line[5:])
-                        if data.get("id") == message["id"]:
-                            body = json.dumps(data)
-                            break
-            reply = json.loads(body)
+                reply = sse_reply(response, message["id"], deadline)
+            else:
+                reply = json.loads(response.read().decode())
             if "error" in reply:
                 sys.exit(f"capture: server error: {reply['error']}")
             return reply["result"]

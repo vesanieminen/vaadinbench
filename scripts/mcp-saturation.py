@@ -314,10 +314,12 @@ def server_tools(definition: dict) -> list[dict] | None:
 
 
 def tax() -> int:
-    """The x-axis of the ladder, offline: tools and schema size per rung.
+    """A planning estimate per rung, offline: servers, tools and schema size.
 
-    Characters are exact; tokens are characters / 4, an estimate. The exact
-    count is what the CLI assembles, which only a model call reports.
+    Characters are exact for the recorded schemas; tokens are characters / 4.
+    This is not the token tax: that is what the pinned CLI assembles from these
+    servers (namespaced, possibly rewritten or deferred), which has to be
+    measured from the CLI itself (conditions/README.md, "Not measured yet").
     """
     useful = manifest("vaadin-docs")["tools"]
     print(f"{'condition':<44}{'servers':>8}{'tools':>7}{'chars':>9}{'~tokens':>9}")

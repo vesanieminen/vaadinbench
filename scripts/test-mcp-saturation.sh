@@ -66,6 +66,9 @@ assert [c["event"] for c in calls] == ["initialize", "list", "call", "call"], ca
 print("mcp-ballast server: ok")
 PY
 
+# The HTTP capture returns once its answer has arrived in an event stream.
+python3 scripts/test-capture-sse.py
+
 # $@ vaadin-bench.py arguments selecting one harbor run; prints its JobConfig.
 resolve() {
   local cmd
