@@ -732,7 +732,7 @@ def main(argv: list[str]) -> int:
         conditions = [c for c in conditions if c.name in names]
     else:
         # An opt-in condition is a whole experiment of its own (the MCP
-        # saturation ladder is twenty of them), so it never rides along with
+        # saturation ladder is twenty-two of them), so it never rides along with
         # --default or an unfiltered run: it is run by naming it.
         conditions = [c for c in conditions if not c.opt_in]
     if args.add_mcp:
