@@ -43,7 +43,8 @@ uv run vaadin-bench.py -c mcp-saturation-inert-060 --add-mcp vaadin-community,va
 ```
 
 The combined condition is named after what was added — `vaadin-skills-mcp+github+playwright` —
-so its job and its results say so. A server the condition already carries, with
+so its job and its results say so. A list too long for a directory name is
+named by its count and a digest instead (`mcp-saturation-inert-000+23-mcp-1a2b3c4d`). A server the condition already carries, with
 the same definition, is not added twice and not named. Two definitions of one
 server name are refused before anything runs: Harbor keeps one server per name
 and the last one would silently win.
