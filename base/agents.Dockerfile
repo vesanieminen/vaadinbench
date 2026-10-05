@@ -71,8 +71,8 @@ RUN curl -fsSL https://downloads.claude.ai/claude-code-releases/bootstrap.sh \
 # Verify what the image ended up with:
 #   docker run --rm "ghcr.io/vaadin/vaadinbench-agents:$(cat base/stack-version.txt)" \
 #       codex --version
-# Keep GPT-6 Astra, Sol, and Luna support in the container, not just on the host.
-ARG CODEX_VERSION=0.158.0
+# Keep GPT-6 and GPT-6.1 Sol support in the container, not just on the host.
+ARG CODEX_VERSION=0.159.3
 RUN curl -fsSL https://chatgpt.com/codex/install.sh -o /tmp/codex-install.sh \
     && CODEX_NON_INTERACTIVE=1 sh /tmp/codex-install.sh --release "$CODEX_VERSION" \
     && rm -f /tmp/codex-install.sh \
