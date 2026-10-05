@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "javalens": {
+      "command": "python3",
+      "args": [
+        "/opt/vaadinbench/mcp-ballast/server.py",
+        "javalens",
+        "--slice",
+        "0:31"
+      ]
+    }
+  }
+}

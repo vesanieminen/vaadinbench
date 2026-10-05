@@ -1,0 +1,1894 @@
+{
+  "name": "javalens",
+  "flavour": "nuisance",
+  "provenance": {
+    "kind": "captured",
+    "captured": "2026-10-05",
+    "source": "javalens-mcp v1.5.1 (javalens-v1.5.1.tar.gz)",
+    "server_info": {
+      "name": "JavaLens",
+      "version": "1.5.1"
+    }
+  },
+  "default_response": {
+    "isError": true,
+    "text": "No project loaded. Call load_project with the path to a Maven or Gradle project, then wait for health_check to report ready."
+  },
+  "responses": {
+    "load_project": {
+      "text": "{\"status\": \"loading\", \"message\": \"Project load started. Indexing runs in the background; poll health_check until status is ready.\"}"
+    },
+    "health_check": {
+      "text": "{\"status\": \"loading\", \"project\": null, \"indexedCompilationUnits\": 0}"
+    }
+  },
+  "tools": [
+    {
+      "name": "health_check",
+      "description": "Check server status and project state.\n\nUSAGE: Call on startup to verify server is operational.\nOUTPUT: Server status, project info if loaded, capabilities.\n\nWORKFLOW:\n1. Call health_check to verify server is running\n2. If no project loaded, call load_project next\n3. Use returned capabilities to understand available features\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "load_project",
+      "description": "Load a Java project for analysis.\nMUST be called before using other analysis tools.\n\nUSAGE: load_project(projectPath=\"/path/to/project\")\nOUTPUT: Project structure summary including packages, source files, build system\n\nSupports:\n- Maven projects (pom.xml)\n- Gradle projects (build.gradle or build.gradle.kts)\n- Plain Java projects with src/ directory\n\nWORKFLOW:\n1. Call load_project with absolute path to project root\n2. Wait for project to load (may take a few seconds for large projects)\n3. Use health_check to verify project is loaded\n4. Begin using analysis tools (search_symbols, find_references, etc.)\n\nSYNC (strict mode): answers are always verified against the files on disk -\nno reload is needed after editing, adding, or deleting source files. Call\nload_project only on first use, when a response reports RELOAD_REQUIRED\n(a build file changed), or to rebuild everything from scratch.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectPath": {
+            "type": "string",
+            "description": "Absolute path to the project root directory containing pom.xml or build.gradle"
+          }
+        },
+        "required": [
+          "projectPath"
+        ]
+      }
+    },
+    {
+      "name": "search_symbols",
+      "description": "Search for types, methods, fields by name pattern.\nSupports glob patterns: * (any chars), ? (single char)\n\nUSAGE: search_symbols(query=\"*Service\", kind=\"class\")\nOUTPUT: List of matching symbols with locations\n\nEXAMPLES:\n- search_symbols(query=\"Order*\") - classes starting with Order\n- search_symbols(query=\"*Repository\", kind=\"interface\")\n- search_symbols(query=\"get*\", kind=\"method\")\n\nPAGINATION: Use offset parameter for large result sets\n\nIMPORTANT: Requires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search pattern - supports * and ? wildcards"
+          },
+          "kind": {
+            "type": "string",
+            "description": "Filter by kind: class, interface, enum, method, field"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Max results to return (default 50)"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Skip first N results for pagination"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "go_to_definition",
+      "description": "Navigate to symbol definition.\n\nUSAGE: Position cursor on a symbol reference, returns definition location.\nOUTPUT: File path, line, column of the definition.\n\nIMPORTANT: Uses ZERO-BASED coordinates.\nIf editor shows 'Line 14, Column 5', pass line=13, column=4\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file (absolute or relative to project)"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "find_references",
+      "description": "Find all references to a symbol across the project.\n\nUSAGE: Position on symbol, find all usages\nOUTPUT: List of reference locations with context\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Max references to return (default 100)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "find_implementations",
+      "description": "Find implementations of an interface or extensions of a class.\n\nUSAGE: Position on a type (interface or class), find all implementors/subclasses\nOUTPUT: List of implementing/extending types with locations\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Max implementations to return (default 100)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_type_hierarchy",
+      "description": "Get the type hierarchy (supertypes and subtypes) for a Java type.\n\nUSAGE: Position on a type, returns full inheritance chain\nOUTPUT: Superclasses, interfaces, and all subtypes\n\nCan be called with either:\n- File position (filePath, line, column) - finds type at cursor\n- Type name (typeName) - looks up type by qualified name\n\nIMPORTANT: Uses ZERO-BASED coordinates when using file position.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file (for position-based lookup)"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "typeName": {
+            "type": "string",
+            "description": "Fully qualified type name (alternative to position)"
+          },
+          "maxDepth": {
+            "type": "integer",
+            "description": "Maximum depth of hierarchy to return (default 10)"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_document_symbols",
+      "description": "Get all symbols (types, methods, fields) in a source file.\n\nUSAGE: Provide a file path to get all symbols in that file\nOUTPUT: Hierarchical list of all types, methods, fields, and nested types\n\nReturns symbols with their locations, kinds, and modifiers.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "includePrivate": {
+            "type": "boolean",
+            "description": "Include private members (default true)"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum symbols to return (default 500)"
+          }
+        },
+        "required": [
+          "filePath"
+        ]
+      }
+    },
+    {
+      "name": "get_type_members",
+      "description": "Get all members (methods, fields, nested types) of a specific type.\n\nUSAGE: Provide a type name to get all its members\nOUTPUT: Lists of methods, fields, and nested types with their details\n\nOptions:\n- includeInherited: Also include members from superclasses/interfaces\n- memberKind: Filter to \"method\", \"field\", or \"type\" only\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Fully qualified or simple type name"
+          },
+          "includeInherited": {
+            "type": "boolean",
+            "description": "Include inherited members (default false)"
+          },
+          "memberKind": {
+            "type": "string",
+            "description": "Filter: 'method', 'field', 'type', or null for all"
+          }
+        },
+        "required": [
+          "typeName"
+        ]
+      }
+    },
+    {
+      "name": "get_classpath_info",
+      "description": "Get project classpath information.\n\nUSAGE: Call to get all classpath entries for the loaded project\nOUTPUT: Source folders, libraries, and classpath containers\n\nUseful for understanding project structure and dependencies.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "includeLibraries": {
+            "type": "boolean",
+            "description": "Include library entries (default true)"
+          },
+          "includeSource": {
+            "type": "boolean",
+            "description": "Include source folder entries (default true)"
+          },
+          "includeContainers": {
+            "type": "boolean",
+            "description": "Include container entries like JRE (default true)"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_project_structure",
+      "description": "Get project structure showing package hierarchy.\n\nUSAGE: Call to see the package tree of the loaded project\nOUTPUT: Source roots with packages and file counts\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "includeFiles": {
+            "type": "boolean",
+            "description": "Include file names in each package (default false)"
+          },
+          "maxDepth": {
+            "type": "integer",
+            "description": "Maximum package depth to show (default 10)"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_symbol_info",
+      "description": "Get detailed information about any symbol at a position.\n\nUSAGE: Position on any symbol (type, method, field, variable)\nOUTPUT: Comprehensive info including kind, modifiers, signature, location\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_type_at_position",
+      "description": "Get type information at a specific position.\n\nUSAGE: Position on a type reference or declaration\nOUTPUT: Type details including kind, modifiers, superclass, interfaces\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_method_at_position",
+      "description": "Get method information at a specific position.\n\nUSAGE: Position on a method reference or declaration\nOUTPUT: Method signature, parameters, return type, modifiers, exceptions\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_field_at_position",
+      "description": "Get field information at a specific position.\n\nUSAGE: Position on a field reference or declaration\nOUTPUT: Field type, modifiers, constant value if applicable\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_hover_info",
+      "description": "Get hover information (documentation) for a symbol at a position.\n\nUSAGE: Position on any symbol\nOUTPUT: Signature, Javadoc, and quick info similar to IDE hover\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_javadoc",
+      "description": "Get parsed Javadoc documentation for a symbol.\n\nUSAGE: Position on any documented symbol\nOUTPUT: Parsed Javadoc with summary, @param, @return, @throws, etc.\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_signature_help",
+      "description": "Get method signature help at a position.\n\nUSAGE: Position on a method call or declaration\nOUTPUT: Method signatures with parameter info\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_enclosing_element",
+      "description": "Get the enclosing element at a position.\n\nUSAGE: Position anywhere in code\nOUTPUT: Enclosing method, type, and package info\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_super_method",
+      "description": "Find the method that this method overrides or implements.\n\nUSAGE: Position on a method that overrides/implements another\nOUTPUT: The superclass/interface method being overridden\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_diagnostics",
+      "description": "Get compilation diagnostics (errors and warnings) for a file or project.\n\nUSAGE: get_diagnostics() for all files, or get_diagnostics(filePath=\"...\") for one file\nOUTPUT: List of compilation errors and warnings with locations\n\nUseful for finding syntax errors, type mismatches, missing imports, etc.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Optional path to source file. If omitted, checks all files."
+          },
+          "severity": {
+            "type": "string",
+            "description": "Filter by severity: 'error', 'warning', or 'all' (default: 'all')"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Max diagnostics to return (default 100)"
+          }
+        }
+      }
+    },
+    {
+      "name": "validate_syntax",
+      "description": "Quick syntax-only validation for a file or inline code.\n\nUSAGE: validate_syntax(filePath=\"...\") or validate_syntax(content=\"...\")\nOUTPUT: Syntax errors (no semantic analysis for speed)\n\nMuch faster than get_diagnostics - use for quick syntax checks.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file to validate"
+          },
+          "content": {
+            "type": "string",
+            "description": "Inline Java source code to validate (alternative to filePath)"
+          },
+          "fileName": {
+            "type": "string",
+            "description": "Optional filename for inline content (default: Untitled.java)"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_call_hierarchy_incoming",
+      "description": "Find all callers of a method (incoming calls).\n\nUSAGE: Position cursor on a method name\nOUTPUT: List of methods that call this method\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nUseful for understanding who depends on a method before changing it.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Max callers to return (default 50)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_call_hierarchy_outgoing",
+      "description": "Find all methods called by a method (outgoing calls).\n\nUSAGE: Position cursor on a method name\nOUTPUT: List of methods that this method calls\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nUseful for understanding what a method depends on.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "find_field_writes",
+      "description": "Find all write accesses (mutations) to a field.\n\nUSAGE: Position cursor on a field declaration or reference\nOUTPUT: List of locations where the field is modified\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nUnlike find_references which returns all usages, this returns only\nlocations where the field value is changed (assignments, increments, etc).\nUseful for data flow analysis and understanding state mutations.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Max write locations to return (default 100)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "find_tests",
+      "description": "Find test classes and methods in the project.\n\nUSAGE: find_tests()\nOUTPUT: List of test classes with their test methods\n\nSupports:\n- JUnit 4 (@Test, @Before, @After, etc.)\n- JUnit 5 (@Test, @BeforeEach, @AfterEach, etc.)\n- TestNG annotations\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Filter test classes by name pattern (glob)"
+          },
+          "includeDisabled": {
+            "type": "boolean",
+            "description": "Include disabled/ignored tests (default false)"
+          }
+        }
+      }
+    },
+    {
+      "name": "find_unused_code",
+      "description": "Find unused private methods and fields in the project.\n\nUSAGE: find_unused_code()\nUSAGE: find_unused_code(filePath=\"path/to/File.java\")\nOUTPUT: List of unused private members\n\nDetects:\n- Unused private methods\n- Unused private fields\n- Write-only fields (set but never read)\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Optional: specific file to check (default: all files)"
+          },
+          "includeFields": {
+            "type": "boolean",
+            "description": "Include unused fields (default true)"
+          },
+          "includeMethods": {
+            "type": "boolean",
+            "description": "Include unused methods (default true)"
+          }
+        }
+      }
+    },
+    {
+      "name": "find_unreachable_code",
+      "description": "Find code unreachable from any entry point, project-wide.\n\nUSAGE: find_unreachable_code()\nOUTPUT: Members (types, methods, fields) that no entry point reaches,\nwith visibility and location, plus the roots used.\n\nRoots are public static void main(String[]) methods and detected\ntest methods (JUnit 4/5, TestNG; disabled tests still count).\nReachability follows calls, instantiations, field accesses, field\ninitializers, and overrides (a call through an interface or\nsuperclass reaches every override). A type is reported only when\nneither it nor any of its members is reachable.\n\nIMPORTANT: results mean \"unreachable from declared entry points\",\nnot \"safe to delete\" - reflection, dependency injection, and\nserialization entry points are invisible to the graph.\n\nOptions:\n- includeTestRoots: count test methods as entry points (default true)\n- maxResults: cap the reported list (default 100)\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "includeTestRoots": {
+            "type": "boolean",
+            "description": "Treat test methods as entry points (default true)"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum entries to return (default 100)"
+          }
+        }
+      }
+    },
+    {
+      "name": "find_affected_tests",
+      "description": "Find the test methods that exercise a symbol, directly or\ntransitively.\n\nUSAGE: find_affected_tests(filePath=\"path/to/File.java\", line=10, column=5)\nOUTPUT: Test methods (JUnit 4/5, TestNG) from which the symbol is\nreachable, with locations - the set of tests to run after changing it.\n\nThe caller walk follows calls, instantiations, field accesses, and\noverride declarations (a test calling through an interface or\nsuperclass covers the implementation). Non-test intermediate\nmethods are walked through but not reported. Disabled tests are\nincluded with disabled=true (they cover the code but will not run).\nA symbol no test reaches returns an empty set.\n\nSupports project methods, fields, and types as the target symbol.\n\nOptions:\n- maxResults: cap the reported list (default 100)\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "File containing the symbol"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum test methods to return (default 100)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "find_possible_bugs",
+      "description": "Find possible bugs and code quality issues.\n\nUSAGE: find_possible_bugs()\nUSAGE: find_possible_bugs(filePath=\"path/to/File.java\")\nOUTPUT: List of potential issues\n\nDetects:\n- Null pointer risks (dereferencing potentially null values)\n- Resource leaks (unclosed streams, connections)\n- Empty catch blocks\n- Comparison issues (== on objects instead of equals)\n- Synchronization issues (sync on String)\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Optional: specific file to check (default: all files)"
+          },
+          "severity": {
+            "type": "string",
+            "description": "Filter by severity: high, medium, low, all (default: all)"
+          }
+        }
+      }
+    },
+    {
+      "name": "rename_symbol",
+      "description": "Rename a symbol (variable, method, field, class, etc.) across the project.\n\nReturns text edits for all occurrences that need to be changed.\nThe caller should apply these edits to perform the rename.\n\nUSAGE: Position on symbol, provide new name\nOUTPUT: List of text edits to apply\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file containing the symbol"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "newName": {
+            "type": "string",
+            "description": "New name for the symbol"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column",
+          "newName"
+        ]
+      }
+    },
+    {
+      "name": "organize_imports",
+      "description": "Organize imports in a Java file.\n\nRemoves unused imports and sorts remaining imports alphabetically.\nReturns the organized import block that should replace the existing imports.\n\nUSAGE: organize_imports(filePath=\"path/to/File.java\")\nOUTPUT: Organized import statements and list of changes\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          }
+        },
+        "required": [
+          "filePath"
+        ]
+      }
+    },
+    {
+      "name": "extract_variable",
+      "description": "Extract an expression at the given position into a local variable.\n\nReturns the text edits needed to extract the expression.\nThe caller should apply these edits to perform the extraction.\n\nUSAGE: Select expression by providing start and end positions\nOUTPUT: Variable declaration and replacement edits\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "startLine": {
+            "type": "integer",
+            "description": "Zero-based start line of expression"
+          },
+          "startColumn": {
+            "type": "integer",
+            "description": "Zero-based start column of expression"
+          },
+          "endLine": {
+            "type": "integer",
+            "description": "Zero-based end line of expression"
+          },
+          "endColumn": {
+            "type": "integer",
+            "description": "Zero-based end column of expression"
+          },
+          "variableName": {
+            "type": "string",
+            "description": "Name for the new variable (optional, will suggest if not provided)"
+          }
+        },
+        "required": [
+          "filePath",
+          "startLine",
+          "startColumn",
+          "endLine",
+          "endColumn"
+        ]
+      }
+    },
+    {
+      "name": "extract_method",
+      "description": "Extract a code block into a new method.\n\nUSAGE: Select code range, provide method name\nOUTPUT: Text edits for method declaration and call site\n\nThe tool analyzes the selected code to:\n- Determine which variables become parameters\n- Determine return type based on variables modified\n- Generate appropriate method signature\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "startLine": {
+            "type": "integer",
+            "description": "Zero-based start line of code to extract"
+          },
+          "startColumn": {
+            "type": "integer",
+            "description": "Zero-based start column"
+          },
+          "endLine": {
+            "type": "integer",
+            "description": "Zero-based end line of code to extract"
+          },
+          "endColumn": {
+            "type": "integer",
+            "description": "Zero-based end column"
+          },
+          "methodName": {
+            "type": "string",
+            "description": "Name for the new method"
+          }
+        },
+        "required": [
+          "filePath",
+          "startLine",
+          "startColumn",
+          "endLine",
+          "endColumn",
+          "methodName"
+        ]
+      }
+    },
+    {
+      "name": "find_annotation_usages",
+      "description": "Find all usages of an annotation type in the project.\n\nJDT-UNIQUE: This fine-grained search is not available in LSP.\n\nUSAGE: Provide fully qualified annotation name as `typeName`\nOUTPUT: All locations where the annotation is applied\n\nExamples:\n- find_annotation_usages(typeName=\"org.springframework.beans.factory.annotation.Autowired\")\n- find_annotation_usages(typeName=\"org.junit.jupiter.api.Test\")\n- find_annotation_usages(typeName=\"javax.persistence.Entity\")\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Fully qualified annotation type name (e.g., 'org.springframework.beans.factory.annotation.Autowired')"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum results to return (default 100)"
+          }
+        },
+        "required": [
+          "typeName"
+        ]
+      }
+    },
+    {
+      "name": "find_type_instantiations",
+      "description": "Find all instantiations of a type (new Foo() calls).\n\nJDT-UNIQUE: This fine-grained search is not available in LSP.\n\nUSAGE: Provide fully qualified type name\nOUTPUT: All locations where the type is instantiated with 'new'\n\nUseful for:\n- Understanding object creation patterns\n- Identifying factory method candidates\n- Finding coupling points\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Fully qualified type name (e.g., 'java.util.ArrayList')"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum results to return (default 100)"
+          }
+        },
+        "required": [
+          "typeName"
+        ]
+      }
+    },
+    {
+      "name": "find_casts",
+      "description": "Find all casts to a type ((Foo) x expressions).\n\nJDT-UNIQUE: This fine-grained search is not available in LSP.\n\nUSAGE: Provide fully qualified type name\nOUTPUT: All locations where casting to this type occurs\n\nUseful for:\n- Identifying unsafe downcasts\n- Finding refactoring opportunities (replace cast with polymorphism)\n- Understanding type conversion patterns\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Fully qualified type name to find casts to"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum results to return (default 100)"
+          }
+        },
+        "required": [
+          "typeName"
+        ]
+      }
+    },
+    {
+      "name": "find_instanceof_checks",
+      "description": "Find all instanceof checks for a type (x instanceof Foo).\n\nJDT-UNIQUE: This fine-grained search is not available in LSP.\n\nUSAGE: Provide fully qualified type name\nOUTPUT: All locations where instanceof checks against this type occur\n\nUseful for:\n- Identifying type checking patterns\n- Finding polymorphism opportunities (replace instanceof with virtual dispatch)\n- Understanding type discrimination logic\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Fully qualified type name to find instanceof checks for"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum results to return (default 100)"
+          }
+        },
+        "required": [
+          "typeName"
+        ]
+      }
+    },
+    {
+      "name": "find_throws_declarations",
+      "description": "Find all throws declarations of an exception type in method signatures.\n\nJDT-UNIQUE: This fine-grained search is not available in LSP.\n\nUSAGE: Provide fully qualified exception type name as `typeName`\nOUTPUT: All methods that declare 'throws ExceptionType'\n\nUseful for:\n- Understanding exception flow in the codebase\n- Finding all methods that can throw a specific exception\n- Exception handling analysis\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Fully qualified exception type name (e.g., 'java.io.IOException')"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum results to return (default 100)"
+          }
+        },
+        "required": [
+          "typeName"
+        ]
+      }
+    },
+    {
+      "name": "find_catch_blocks",
+      "description": "Find all catch blocks for an exception type (catch(ExceptionType e)).\n\nJDT-UNIQUE: This fine-grained search is not available in LSP.\n\nUSAGE: Provide fully qualified exception type name as `typeName`\nOUTPUT: All catch blocks that handle this exception type\n\nUseful for:\n- Understanding exception handling patterns\n- Finding all handlers for a specific exception\n- Exception handling analysis and refactoring\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Fully qualified exception type name (e.g., 'java.io.IOException')"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum results to return (default 100)"
+          }
+        },
+        "required": [
+          "typeName"
+        ]
+      }
+    },
+    {
+      "name": "find_method_references",
+      "description": "Find all method reference expressions (Foo::bar lambda syntax).\n\nJDT-UNIQUE: This fine-grained search is not available in LSP.\n\nUSAGE: Position on a method, or provide method details\nOUTPUT: All locations where the method is used as a method reference\n\nUseful for:\n- Understanding functional programming patterns\n- Finding lambda-style usages of methods\n- Refactoring analysis\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file containing the method"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of the method"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum results to return (default 100)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "find_type_arguments",
+      "description": "Find all usages of a type as a generic type argument (List<Foo>, Map<K, Foo>).\n\nJDT-UNIQUE: This fine-grained search is not available in LSP.\n\nUSAGE: Provide fully qualified type name\nOUTPUT: All locations where the type is used as a generic argument\n\nUseful for:\n- Understanding generic usage patterns\n- Finding all collections/containers of a type\n- API design analysis\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Fully qualified type name to find in generic arguments"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum results to return (default 100)"
+          }
+        },
+        "required": [
+          "typeName"
+        ]
+      }
+    },
+    {
+      "name": "analyze_file",
+      "description": "Comprehensive file analysis in a single call.\n\nUSAGE: analyze_file(filePath=\"path/to/File.java\")\nOUTPUT: File info, imports, types with member counts, diagnostics\n\nCombines:\n- File info (path, package, line count)\n- All imports (with static/on-demand flags)\n- All types with member counts\n- Compilation diagnostics (errors/warnings)\n\nUse this instead of multiple calls to get_document_symbols + get_diagnostics.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "includeMembers": {
+            "type": "boolean",
+            "description": "Include full member details for each type (default false)"
+          },
+          "includeDiagnostics": {
+            "type": "boolean",
+            "description": "Include compilation errors/warnings (default true)"
+          }
+        },
+        "required": [
+          "filePath"
+        ]
+      }
+    },
+    {
+      "name": "analyze_type",
+      "description": "Comprehensive type analysis in a single call.\n\nUSAGE: analyze_type(typeName=\"com.example.Foo\")\nOUTPUT: Type info, members, hierarchy, usage summary, diagnostics\n\nCombines:\n- Type info (name, kind, modifiers, location)\n- All members (methods, fields, constructors)\n- Type hierarchy (superclass, interfaces, subtypes)\n- Usage summary (instantiations, casts, etc.)\n- Diagnostics for the type's file\n\nUse this instead of multiple calls to get_type_members + get_type_hierarchy + get_type_usage_summary.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Fully qualified or simple type name"
+          },
+          "includeUsages": {
+            "type": "boolean",
+            "description": "Include usage analysis (default true)"
+          },
+          "maxUsages": {
+            "type": "integer",
+            "description": "Max usages per category (default 10)"
+          }
+        },
+        "required": [
+          "typeName"
+        ]
+      }
+    },
+    {
+      "name": "analyze_method",
+      "description": "Comprehensive method analysis in a single call.\n\nUSAGE: analyze_method(filePath=\"path/to/File.java\", line=N, column=N)\nOUTPUT: Method info, parameters, exceptions, callers, callees, override info\n\nCombines:\n- Method info (signature, modifiers, return type)\n- Parameters with types\n- Declared exceptions\n- Incoming calls (who calls this method)\n- Outgoing calls (what this method calls)\n- Override information (super method, overriding methods)\n\nUse this instead of multiple calls to get_method_at_position + call hierarchy tools.\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "maxCallers": {
+            "type": "integer",
+            "description": "Maximum callers to return (default 20)"
+          },
+          "maxCallees": {
+            "type": "integer",
+            "description": "Maximum callees to return (default 50)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_type_usage_summary",
+      "description": "Get comprehensive usage summary for a type across the codebase.\n\nUSAGE: get_type_usage_summary(typeName=\"com.example.Foo\")\nOUTPUT: Instantiations, casts, instanceof checks, type arguments, annotations\n\nAggregates all usage patterns in a single call:\n- Instantiations (new Foo())\n- Casts ((Foo) x)\n- Instanceof checks (x instanceof Foo)\n- Type arguments (List<Foo>)\n- Annotation usages (if annotation type)\n\nUse this to understand how a type is used throughout the project.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Fully qualified or simple type name"
+          },
+          "maxPerCategory": {
+            "type": "integer",
+            "description": "Maximum results per category (default 10)"
+          }
+        },
+        "required": [
+          "typeName"
+        ]
+      }
+    },
+    {
+      "name": "extract_constant",
+      "description": "Extract an expression into a static final constant at class level.\n\nReturns the text edits needed to extract the expression.\nThe caller should apply these edits to perform the extraction.\n\nUSAGE: Select expression by providing start and end positions\nOUTPUT: Constant declaration and replacement edits\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "startLine": {
+            "type": "integer",
+            "description": "Zero-based start line of expression"
+          },
+          "startColumn": {
+            "type": "integer",
+            "description": "Zero-based start column of expression"
+          },
+          "endLine": {
+            "type": "integer",
+            "description": "Zero-based end line of expression"
+          },
+          "endColumn": {
+            "type": "integer",
+            "description": "Zero-based end column of expression"
+          },
+          "constantName": {
+            "type": "string",
+            "description": "Name for the constant (should be UPPER_SNAKE_CASE)"
+          }
+        },
+        "required": [
+          "filePath",
+          "startLine",
+          "startColumn",
+          "endLine",
+          "endColumn",
+          "constantName"
+        ]
+      }
+    },
+    {
+      "name": "inline_variable",
+      "description": "Inline a local variable by replacing all usages with its initializer expression.\n\nReturns the text edits needed to inline the variable.\nThe caller should apply these edits to perform the inlining.\n\nUSAGE: Position cursor on variable declaration or usage\nOUTPUT: Edits to delete declaration and replace usages with initializer\n\nIMPORTANT: Uses ZERO-BASED coordinates.\nSAFETY: Will refuse if variable is modified after initialization.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of variable declaration or usage"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "inline_method",
+      "description": "Inline a method call by replacing it with the method body.\n\nReturns the text edit needed to inline the method call.\nThe caller should apply this edit to perform the inlining.\n\nUSAGE: Position cursor on a method call\nOUTPUT: Edit to replace call with method body\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nLIMITATIONS:\n- Method must be in the same project (source available)\n- Works best with simple methods (no complex control flow)\n- Single return statement is handled, multiple returns may need review\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file containing the method call"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of method call"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number (on method name)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "change_method_signature",
+      "description": "Change method signature (parameters, return type, or name) and update all call sites.\n\nReturns text edits for the method declaration and all call sites.\nThe caller should apply these edits to perform the change.\n\nUSAGE: Position on method declaration, provide changes\nOUTPUT: Edits for declaration and all call sites\n\nPARAMETER OPERATIONS:\n- Add new parameter with default value for existing calls\n- Remove parameter (will remove from calls)\n- Rename parameter\n- Reorder parameters (specify all parameters in new order)\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file containing the method"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of method declaration"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "newName": {
+            "type": "string",
+            "description": "New method name (optional, omit to keep current)"
+          },
+          "newReturnType": {
+            "type": "string",
+            "description": "New return type (optional, omit to keep current)"
+          },
+          "newParameters": {
+            "items": {
+              "properties": {
+                "name": {
+                  "description": "Parameter name",
+                  "type": "string"
+                },
+                "type": {
+                  "description": "Parameter type",
+                  "type": "string"
+                },
+                "defaultValue": {
+                  "description": "Default value for new params at call sites",
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "description": "New parameter list. Each item: {name, type, defaultValue?}. Order matters.",
+            "type": "array"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "extract_interface",
+      "description": "Extract an interface from a class containing selected public methods.\n\nReturns the text for a new interface file and edits to add 'implements'\nclause to the original class.\n\nUSAGE: Position on class, provide interface name, optionally specify methods\nOUTPUT: Interface file content and class modification edit\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file containing the class"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of class declaration"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "interfaceName": {
+            "type": "string",
+            "description": "Name for the new interface"
+          },
+          "methodNames": {
+            "description": "Specific method names to include (default: all public non-static methods)",
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column",
+          "interfaceName"
+        ]
+      }
+    },
+    {
+      "name": "convert_anonymous_to_lambda",
+      "description": "Convert an anonymous class implementing a functional interface to a lambda expression.\n\nReturns the text edit needed to convert the anonymous class to a lambda.\nThe caller should apply this edit to perform the conversion.\n\nUSAGE: Position cursor on the 'new' keyword of the anonymous class\nOUTPUT: Edit to replace anonymous class with lambda\n\nIMPORTANT: Uses ZERO-BASED coordinates.\nREQUIREMENTS: The anonymous class must implement a functional interface\n(exactly one abstract method).\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of anonymous class (on 'new' keyword)"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "suggest_imports",
+      "description": "Find import candidates for unresolved type.\n\nUSAGE: suggest_imports(typeName=\"List\")\nOUTPUT: List of matching types with fully qualified names and relevance\n\nSearches project sources, JDK, and libraries for types matching\nthe simple name. Results are sorted by relevance (java.util types\nranked higher than java.awt, etc.).\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "typeName": {
+            "type": "string",
+            "description": "Simple type name to find imports for (e.g., 'List', 'Map')"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum candidates to return (default 20)"
+          }
+        },
+        "required": [
+          "typeName"
+        ]
+      }
+    },
+    {
+      "name": "get_quick_fixes",
+      "description": "List available fixes for a problem at position.\n\nUSAGE: get_quick_fixes(filePath=\"...\", line=10)\nOUTPUT: List of quick fixes with fixId, label, and category\n\nSupported fixes:\n- UndefinedType: Suggest imports for unresolved types\n- UnusedImport: Remove unused import\n- UnhandledException: Add throws or surround with try-catch\n\nIMPORTANT: Uses ZERO-BASED line numbers.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number (optional, uses whole line if omitted)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line"
+        ]
+      }
+    },
+    {
+      "name": "apply_quick_fix",
+      "description": "Apply a fix by ID.\n\nUSAGE: apply_quick_fix(filePath=\"...\", fixId=\"add_import:java.util.List\")\nOUTPUT: Text edits to apply the fix\n\nFix ID formats:\n- add_import:{fullyQualifiedName} - Add an import statement\n- remove_import:{index} - Remove import at index\n- add_throws:{exceptionType} - Add throws declaration to method\n- surround_try_catch:{exceptionType} - Wrap statement in try-catch\n\nIMPORTANT: Uses ZERO-BASED line numbers.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "fixId": {
+            "type": "string",
+            "description": "The fix ID from get_quick_fixes (e.g., 'add_import:java.util.List')"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number (required for some fixes like add_throws)"
+          }
+        },
+        "required": [
+          "filePath",
+          "fixId"
+        ]
+      }
+    },
+    {
+      "name": "apply_cleanup",
+      "description": "Apply a JDT code clean-up to a file and return the rewritten source.\n\nUSAGE: apply_cleanup(filePath=\"path/to/File.java\", cleanupId=\"convert_loops\")\nOUTPUT: changed flag, a label, and the full rewritten source (the file is\nNOT written — apply the returned source yourself).\n\nSupported cleanupId values:\n            - convert_loops: rewrite index- and iterator-based for loops as enhanced for loops\n            - convert_to_lambda: convert anonymous classes implementing a functional interface to lambdas\n            - pattern_matching_instanceof: use pattern matching for instanceof checks followed by a cast\n            - convert_to_switch_expression: convert assignment/return switch statements to switch expressions\n            - string_concat_to_text_block: convert multi-line string concatenations to text blocks\n            - do_while_rather_than_while: replace while loops that always run once with do-while loops\n            - invert_equals: invert equals() calls so the constant is the receiver (avoids NPEs)\n            - boolean_value_rather_than_comparison: simplify comparisons with boolean literals (x == true -> x)\n            - else_if: collapse else blocks containing a lone if into else-if chains\n            - overridden_assignment: remove initializers that are overwritten before being read\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "cleanupId": {
+            "type": "string",
+            "description": "Clean-up to apply (e.g. 'convert_loops')"
+          }
+        },
+        "required": [
+          "filePath",
+          "cleanupId"
+        ]
+      }
+    },
+    {
+      "name": "encapsulate_field",
+      "description": "Encapsulate a field: generate a getter/setter pair and rewrite all\ndirect accesses (in this and other files) to go through them.\n\nUSAGE: Position on the field name; optionally name the accessors.\nOUTPUT: editsByFile with all required text edits; warnings from JDT's\nown condition checking. Edits are returned as text - apply them yourself.\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file containing the field"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of the field declaration"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number (on the field name)"
+          },
+          "getterName": {
+            "type": "string",
+            "description": "Getter name (default: getX for field x)"
+          },
+          "setterName": {
+            "type": "string",
+            "description": "Setter name (default: setX for field x)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "pull_up",
+      "description": "Pull a method or field up into the superclass and remove it from the\ndeclaring subclass.\n\nUSAGE: Position on the member name in the subclass.\nOUTPUT: editsByFile covering the superclass (member added) and the\nsubclass (member removed); warnings from JDT's condition checking.\nEdits are returned as text - apply them yourself.\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file containing the member"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of the member declaration"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number (on the member name)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "push_down",
+      "description": "Push a method or field down into the declaring class's subclasses\nand remove it from the declaring class.\n\nUSAGE: Position on the member name in the superclass.\nOUTPUT: editsByFile covering the superclass (member removed) and each\nsubclass (member added); warnings from JDT's condition checking.\nEdits are returned as text - apply them yourself.\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file containing the member"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of the member declaration"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number (on the member name)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "extract_superclass",
+      "description": "Extract a new superclass from a class: the member at the position\nmoves up into a newly created superclass, and the class extends it.\n\nUSAGE: Position on the member to extract; provide the new superclass name.\nOUTPUT: createdFiles carries the new superclass file content;\neditsByFile carries the source class's edits. Nothing is written -\ncreate the file and apply the edits yourself.\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file containing the member"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of the member declaration"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number (on the member name)"
+          },
+          "superclassName": {
+            "type": "string",
+            "description": "Name for the new superclass"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column",
+          "superclassName"
+        ]
+      }
+    },
+    {
+      "name": "introduce_parameter_object",
+      "description": "Bundle a method's parameters into a new parameter-object class and\nrewrite the method and all callers to use it. The class is generated\nas a member of the declaring type.\n\nUSAGE: Position on the method name; optionally name the class and parameter.\nOUTPUT: editsByFile with all required edits; warnings from JDT's\ncondition checking. Edits are returned as text - apply them yourself.\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file containing the method"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of the method declaration"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number (on the method name)"
+          },
+          "className": {
+            "type": "string",
+            "description": "Name for the parameter-object class (default: <MethodName>Parameters)"
+          },
+          "parameterName": {
+            "type": "string",
+            "description": "Name for the new parameter (default: parameterObject)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "move_type_to_new_file",
+      "description": "Move a member (nested) type into its own top-level file. Non-static\nmember types gain a field referencing the former enclosing instance.\n\nUSAGE: Position on the nested type's name.\nOUTPUT: createdFiles carries the new top-level file content;\neditsByFile carries the enclosing file's edits. Nothing is written -\ncreate the file and apply the edits yourself.\n\nIMPORTANT: Uses ZERO-BASED coordinates.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file containing the nested type"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number of the nested type declaration"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number (on the type name)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "diagnose_and_fix",
+      "description": "Diagnose a file and compute the quick-fix edits in one call: runs\ndiagnostics, resolves the available fixes per fixable problem, and\nreturns the top fix's edits for each, combined as editsByFile.\n\nUSAGE: diagnose_and_fix(filePath=\"path/to/File.java\")\nOUTPUT: problems (each with its chosen fix when one exists) and\neditsByFile with the computed edits. NOTHING is written - apply the\nreturned edits yourself.\n\nA file with no fixable diagnostics returns empty problems/edits.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          }
+        },
+        "required": [
+          "filePath"
+        ]
+      }
+    },
+    {
+      "name": "get_complexity_metrics",
+      "description": "Get cyclomatic complexity, cognitive complexity, LOC.\n\nUSAGE: get_complexity_metrics(filePath=\"path/to/File.java\")\nOUTPUT: Complexity metrics with risk assessment\n\nMetrics:\n- Cyclomatic Complexity: Count of decision points (+1 for if/for/while/case/catch)\n- Cognitive Complexity: Penalizes nesting and breaks in linear flow\n- LOC: Physical and logical lines of code\n\nRisk levels:\n- High: CC > 10\n- Medium: CC 6-10\n- Low: CC <= 5\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "Path to source file"
+          },
+          "granularity": {
+            "type": "string",
+            "description": "Level of detail: 'file', 'type', or 'method' (default: 'file')"
+          },
+          "includeDetails": {
+            "type": "boolean",
+            "description": "Include per-method breakdown (default: true)"
+          }
+        },
+        "required": [
+          "filePath"
+        ]
+      }
+    },
+    {
+      "name": "get_dependency_graph",
+      "description": "Get package/type dependencies.\n\nUSAGE: get_dependency_graph(scope=\"type\", name=\"com.example.OrderService\")\nUSAGE: get_dependency_graph(scope=\"package\", name=\"com.example.service\")\nOUTPUT: Dependency graph with nodes and edges\n\nDependency types tracked:\n- import: Direct imports\n- extends: Superclass inheritance\n- implements: Interface implementation\n- field: Field type dependencies\n- parameter: Method parameter types\n- return: Method return types\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "type": "string",
+            "description": "Scope: 'type' or 'package'"
+          },
+          "name": {
+            "type": "string",
+            "description": "Type name (fully qualified) or package name"
+          },
+          "depth": {
+            "type": "integer",
+            "description": "How deep to follow dependencies (default: 1)"
+          },
+          "includeExternal": {
+            "type": "boolean",
+            "description": "Include JDK/library dependencies (default: false)"
+          }
+        },
+        "required": [
+          "scope",
+          "name"
+        ]
+      }
+    },
+    {
+      "name": "find_circular_dependencies",
+      "description": "Detect cycles in packages.\n\nUSAGE: find_circular_dependencies()\nUSAGE: find_circular_dependencies(packageFilter=\"com.example\")\nOUTPUT: List of circular dependency cycles\n\nUses Tarjan's SCC algorithm to efficiently detect all cycles.\nReports cycle paths and affected packages.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "packageFilter": {
+            "type": "string",
+            "description": "Package prefix to analyze (default: all project packages)"
+          },
+          "maxCycleLength": {
+            "type": "integer",
+            "description": "Maximum cycle length to report (default: 10)"
+          }
+        }
+      }
+    },
+    {
+      "name": "analyze_change_impact",
+      "description": "Analyze the blast radius of changing a symbol.\n\nUSAGE: analyze_change_impact(filePath=\"path/to/File.java\", line=10, column=5)\nOUTPUT: All files and call sites affected, grouped by file\n\nOptions:\n- depth: How many levels of callers to follow (default 1, max 3)\n  depth=1: direct references only\n  depth=2: references + callers of those references\n  depth=3: three levels deep\n- transitive: full reverse closure over the project call graph\n  (default false). No depth ceiling; follows calls, instantiations,\n  field accesses, and override declarations (callers through an\n  interface or superclass count). Returns affectedMethods +\n  affectedFiles instead of callSites. Supports project methods,\n  fields, and types.\n- maxResults: cap on affectedMethods in transitive mode (default 200)\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "File containing the symbol"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "depth": {
+            "type": "integer",
+            "description": "Levels of transitive callers to follow (default 1, max 3)"
+          },
+          "transitive": {
+            "type": "boolean",
+            "description": "Full reverse closure over the project graph, no depth ceiling (default false)"
+          },
+          "maxResults": {
+            "type": "integer",
+            "description": "Cap on affectedMethods in transitive mode (default 200)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "analyze_control_flow",
+      "description": "Analyze the control flow structure of a method.\n\nUSAGE: analyze_control_flow(filePath=\"path/to/File.java\", line=10, column=5)\nOUTPUT: Branching points, loops, returns, throws, and nesting depth\n\nReports:\n- Branch count (if/switch/ternary)\n- Loop count and types (for/while/do-while/enhanced-for)\n- Return points with line numbers\n- Throw points with exception types and line numbers\n- Try-catch blocks with caught exception types\n- Maximum nesting depth\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "File containing the method"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number within the method"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "analyze_data_flow",
+      "description": "Analyze data flow within a method.\n\nUSAGE: analyze_data_flow(filePath=\"path/to/File.java\", line=10, column=5)\nOUTPUT: Variables with read/write/declaration info\n\nReports for each variable:\n- name and type\n- whether it is declared, read, written\n- whether it is a parameter, local variable, or field\n- return statement count and types\n\nUseful for understanding side effects before extracting methods.\n\nOptions:\n- followCalls: opt-in interprocedural mode (default false). Tracks\n  two fact kinds across argument-to-parameter hops into project\n  callees and reports interproceduralFlows:\n  * null facts - locals assigned null; sink = a dereference of the\n    tracked value in a callee (potential NPE)\n  * taint facts - this method's parameters, propagated through\n    aliases and expressions; sink = the value escaping into a\n    non-project (binary) callee\n  May-analysis: reassignments do not kill facts. Returned values\n  are not tracked back into callers.\n- maxCallDepth: call-edge bound for followCalls (default 2)\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "File containing the method"
+          },
+          "line": {
+            "type": "integer",
+            "description": "Zero-based line number within the method"
+          },
+          "column": {
+            "type": "integer",
+            "description": "Zero-based column number"
+          },
+          "followCalls": {
+            "type": "boolean",
+            "description": "Track null/taint facts across method calls (default false)"
+          },
+          "maxCallDepth": {
+            "type": "integer",
+            "description": "Call-edge bound for followCalls (default 2, min 1)"
+          }
+        },
+        "required": [
+          "filePath",
+          "line",
+          "column"
+        ]
+      }
+    },
+    {
+      "name": "get_di_registrations",
+      "description": "Find all dependency injection registrations in the project.\n\nUSAGE: get_di_registrations()\nOUTPUT: Components, configurations, beans, and injection points\n\nScans for:\n- Spring components: @Component, @Service, @Repository, @Controller, @RestController\n- Configuration: @Configuration\n- Bean definitions: @Bean\n- Injection points: @Autowired, @Inject (javax and jakarta)\n\nReturns empty categories for non-Spring projects (does not error).\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum results per annotation type (default 200)"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_jpa_model",
+      "description": "Assemble the project's JPA entity model.\n\nUSAGE: get_jpa_model()\nOUTPUT: Entities with table name, id field, and relationships\n(kind, target entity, mappedBy side), with locations.\n\nScans @Entity types (jakarta.persistence and javax.persistence)\nand reads @Table, @Id, and @OneToMany/@ManyToOne/@OneToOne/\n@ManyToMany field annotations. Relationship targets are resolved\nfrom the field's type binding, including through collection type\narguments (List<Order> -> Order).\n\nProjects without JPA on the classpath return an empty model.\n\nOptions:\n- maxResults: cap the reported entities (default 100)\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum entities to return (default 100)"
+          }
+        }
+      }
+    },
+    {
+      "name": "get_http_endpoints",
+      "description": "Assemble the project's HTTP route table.\n\nUSAGE: get_http_endpoints()\nOUTPUT: route -> handler entries (HTTP method, effective path,\nhandler method, framework, location), sorted by path.\n\nSupports:\n- Spring verb shortcuts: @GetMapping, @PostMapping, @PutMapping,\n  @DeleteMapping, @PatchMapping; the class-level @RequestMapping\n  value is composed as the path prefix.\n- JAX-RS (jakarta.ws.rs and javax.ws.rs): @GET/@POST/... verbs\n  with class-level and method-level @Path composed.\n\nMethod-level @RequestMapping(method=...) routes are not assembled;\nverb-shortcut annotations are the supported Spring form.\n\nProjects without these frameworks return an empty table.\n\nOptions:\n- maxResults: cap the reported endpoints (default 200)\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum endpoints to return (default 200)"
+          }
+        }
+      }
+    },
+    {
+      "name": "find_reflection_usage",
+      "description": "Find places where Java reflection API is used.\n\nUSAGE: find_reflection_usage()\nOUTPUT: All reflection calls grouped by method type\n\nDetects calls to:\n- Class.forName(), Class.newInstance()\n- Class.getMethod/getDeclaredMethod/getField/getDeclaredField\n- Class.getConstructor/getDeclaredConstructor\n- Method.invoke(), Field.get/set(), Constructor.newInstance()\n\nThese usages are invisible to static reference searches\nand can break when types or methods are renamed.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "maxResults": {
+            "type": "integer",
+            "description": "Maximum results per reflection method (default 100)"
+          }
+        }
+      }
+    },
+    {
+      "name": "find_large_classes",
+      "description": "Find classes that exceed size thresholds.\n\nUSAGE: find_large_classes(maxMethods=20, maxFields=10, maxLines=300)\nOUTPUT: List of classes exceeding any threshold with their metrics\n\nDefault thresholds:\n- maxMethods: 20 methods\n- maxFields: 10 fields\n- maxLines: 300 lines\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "maxMethods": {
+            "type": "integer",
+            "description": "Maximum methods before flagging (default 20)"
+          },
+          "maxFields": {
+            "type": "integer",
+            "description": "Maximum fields before flagging (default 10)"
+          },
+          "maxLines": {
+            "type": "integer",
+            "description": "Maximum lines before flagging (default 300)"
+          }
+        }
+      }
+    },
+    {
+      "name": "find_naming_violations",
+      "description": "Check code against standard Java naming conventions.\n\nUSAGE: find_naming_violations(filePath=\"path/to/File.java\")\nOUTPUT: List of naming convention violations\n\nConventions checked:\n- Classes/interfaces/enums: PascalCase\n- Methods: camelCase\n- Fields: camelCase\n- Constants (static final): UPPER_SNAKE_CASE\n- Parameters: camelCase\n\nIf filePath is omitted, scans all project files.\n\nRequires load_project to be called first.\n",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "filePath": {
+            "type": "string",
+            "description": "File to check (omit to scan all files)"
+          }
+        }
+      }
+    }
+  ]
+}

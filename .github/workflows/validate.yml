@@ -43,6 +43,13 @@ jobs:
       - name: Test the benchmark wrapper
         run: bash scripts/test-vaadin-bench.sh
 
+      # The MCP saturation ladder is generated: the committed conditions must be
+      # what scripts/mcp-saturation.py writes, the ballast server must replay
+      # every recorded manifest, and every MCP server must combine with every
+      # other and with every condition.
+      - name: Test the MCP saturation ladder
+        run: bash scripts/test-mcp-saturation.sh
+
       - name: View task agent boundary
         run: python3 scripts/test-view-agent-boundary.py
 

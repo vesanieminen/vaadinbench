@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "javalens-live": {
+      "command": "java",
+      "args": ["-jar", "/opt/javalens/javalens.jar", "-data", "/tmp/javalens-workspaces"]
+    }
+  }
+}

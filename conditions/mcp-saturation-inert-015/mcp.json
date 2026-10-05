@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "sentry": {
+      "command": "python3",
+      "args": [
+        "/opt/vaadinbench/mcp-ballast/server.py",
+        "sentry",
+        "--slice",
+        "0:2"
+      ]
+    }
+  }
+}

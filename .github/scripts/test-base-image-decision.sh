@@ -82,6 +82,7 @@ new_repo() {
 commit() { # $1 repo, $2 file to append to, $3 message
     (
         cd "$1"
+        mkdir -p "$(dirname "$2")"
         printf 'changed\n' >>"$2"
         git add -A
         git commit -qm "$3"
@@ -113,6 +114,7 @@ check "verifier entry"     rebuild tasks/flow-new-view/tests/test.sh
 
 # The agents Dockerfile alone, and a change to neither, reuse it.
 check "agents Dockerfile"  reuse   base/agents.Dockerfile
+check "ballast manifest"   reuse   base/mcp-ballast/manifests/github.json
 check "nothing relevant"   reuse   README.md
 check "nothing at all"     reuse   ""
 check "agents on a PR"     reuse   base/agents.Dockerfile pull_request
