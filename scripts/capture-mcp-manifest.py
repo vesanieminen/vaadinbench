@@ -26,8 +26,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import queue
 import subprocess
 import sys
+import threading
+import time
 import urllib.request
 from datetime import date
 from pathlib import Path
@@ -55,17 +58,35 @@ def list_request(request_id: int, cursor: str | None) -> dict:
 
 
 def capture_stdio(command: list[str], timeout: float) -> tuple[dict, list[dict]]:
+    """--timeout bounds each reply. Lines are read on a thread of their own, so a
+    server that starts and then never answers ends the capture at the deadline
+    instead of blocking it forever."""
     process = subprocess.Popen(
         command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1
     )
     assert process.stdin and process.stdout
+    lines: queue.Queue[str | None] = queue.Queue()
+
+    def read() -> None:
+        for line in process.stdout:
+            lines.put(line)
+        lines.put(None)
+
+    threading.Thread(target=read, daemon=True).start()
 
     def send(message: dict) -> None:
         process.stdin.write(json.dumps(message) + "\n")
         process.stdin.flush()
 
     def receive(request_id: int) -> dict:
-        for line in process.stdout:
+        deadline = time.monotonic() + timeout
+        while True:
+            try:
+                line = lines.get(timeout=max(deadline - time.monotonic(), 0))
+            except queue.Empty:
+                sys.exit(f"capture: no reply to request {request_id} within {timeout:g}s")
+            if line is None:
+                sys.exit(f"capture: server closed its output; exit code {process.wait()}")
             line = line.strip()
             if not line.startswith("{"):
                 continue
@@ -74,7 +95,6 @@ def capture_stdio(command: list[str], timeout: float) -> tuple[dict, list[dict]]
                 if "error" in message:
                     sys.exit(f"capture: server error: {message['error']}")
                 return message["result"]
-        sys.exit(f"capture: server closed its output; exit code {process.wait(timeout)}")
 
     try:
         send(INITIALIZE)
