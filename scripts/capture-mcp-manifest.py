@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import json
 import queue
+import socket
 import subprocess
 import sys
 import threading
@@ -119,11 +120,28 @@ def sse_reply(response, request_id: object, deadline: float) -> dict:
     text/event-stream response. A server may keep the stream open after it has
     answered (the transport says it SHOULD close, not MUST), so this returns as
     soon as the answer has arrived instead of waiting for the end of the body.
-    Each read is bounded by the socket timeout; the whole wait by `deadline`."""
+
+    Lines are read on a thread of their own and waited for against `deadline`.
+    The socket timeout only bounds silence: a server that keeps sending bytes
+    without ever finishing a line would hold a readline() here indefinitely."""
+    lines: queue.Queue[bytes | None] = queue.Queue()
+
+    def read() -> None:
+        try:
+            while raw := response.readline():
+                lines.put(raw)
+        except (OSError, ValueError):
+            pass  # closed under the reader once the capture gave up
+        lines.put(None)
+
+    threading.Thread(target=read, daemon=True).start()
     data: list[str] = []
-    while time.monotonic() < deadline:
-        raw = response.readline()
-        if not raw:
+    while True:
+        try:
+            raw = lines.get(timeout=max(deadline - time.monotonic(), 0))
+        except queue.Empty:
+            break
+        if raw is None:
             break
         line = raw.decode().rstrip("\r\n")
         if line.startswith("data:"):
@@ -135,6 +153,15 @@ def sse_reply(response, request_id: object, deadline: float) -> dict:
         data = []
         if isinstance(message, dict) and message.get("id") == request_id:
             return message
+    # The reader may be inside readline() holding the response's buffer lock,
+    # and closing the response waits for that lock. Shutting the socket down
+    # first ends the read, so giving up takes effect at the deadline.
+    sock = getattr(getattr(response.fp, "raw", None), "_sock", None)
+    if sock is not None:
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
     sys.exit(f"capture: no reply to request {request_id} in the event stream")
 
 
