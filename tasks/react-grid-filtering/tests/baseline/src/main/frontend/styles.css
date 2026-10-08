@@ -1,0 +1,49 @@
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+}
+
+.view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+}
+
+.grid {
+  border: 1px solid #ccc;
+}
+
+.grid .row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr 1fr 1fr;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 0.5rem;
+}
+
+.grid .header {
+  border-bottom: 1px solid #ccc;
+  font-weight: 600;
+}
+
+.grid .header button {
+  all: unset;
+  cursor: pointer;
+  padding: 0.5rem 0;
+}
+
+.grid .body {
+  height: 70vh;
+  overflow: auto;
+}
+
+.grid .body .row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  border-bottom: 1px solid #eee;
+  white-space: nowrap;
+  overflow: hidden;
+}
