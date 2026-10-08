@@ -19,12 +19,14 @@ sys.modules["compare"] = compare  # dataclasses look their module up
 spec.loader.exec_module(compare)
 
 
-def trial(jobs: Path, job: str, name: str, task: str, reward, model="claude-haiku", cost=None):
+def trial(jobs: Path, job: str, name: str, task: str, reward, model="claude-haiku", cost=None,
+          checksum="rev1"):
     folder = jobs / job / name
     folder.mkdir(parents=True)
     folder.joinpath("result.json").write_text(json.dumps({
         "trial_name": name,
         "task_name": f"vaadin/{task}",
+        "task_checksum": checksum,
         "agent_info": {"name": "claude-code", "version": "1", "model_info": {"name": model}},
         "agent_result": {"cost_usd": cost},
         "verifier_result": None if reward is None else {"rewards": {"reward": reward}},
@@ -67,12 +69,36 @@ class CompareFrameworksTest(unittest.TestCase):
         self.assertEqual(set(by_condition), {"vaadin-skills-mcp", "vanilla"})
         row = by_condition["vaadin-skills-mcp"]
         self.assertEqual(row["vaadin"], {"attempts": 2, "mean_reward": 0.5, "mean_agent_seconds": 600,
-                                         "mean_cost_usd": 2.0, "unfinished": 0})
+                                         "mean_cost_usd": 2.0, "unfinished": 0, "task_revisions": 1})
         # An unfinished trial is reported, never averaged in as a zero.
         self.assertEqual(row["react"]["attempts"], 1)
         self.assertEqual(row["react"]["mean_reward"], 1.0)
         self.assertEqual(row["react"]["unfinished"], 1)
         self.assertEqual(by_condition["vanilla"]["vaadin"]["attempts"], 0)
+
+    def test_a_prefix_naming_another_condition_does_not_win(self):
+        conditions = ["vanilla", "vaadin-skills", "vaadin-skills-mcp", "vaadin-mcp"]
+        cases = {
+            "vaadin-skills-mcp-vanilla-claude-code-20261007-100000": "vanilla",
+            "vanilla-vaadin-skills-codex-20261007-100000": "vaadin-skills",
+            "vaadin-skills-mcp-claude-code-20261007-100000": "vaadin-skills-mcp",
+            "vaadin-mcp-claude-code-20261007-100000": "vaadin-mcp",
+            "something-else": "?",
+        }
+        for job, expected in cases.items():
+            self.assertEqual(compare.condition_of(job, conditions), expected, job)
+
+    def test_mixed_task_revisions_are_counted_and_warned_about(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            jobs = Path(tmp)
+            job = "vanilla-claude-code-20261007-100000"
+            trial(jobs, job, "react-new-view__a", "react-new-view", 1, checksum="rev1")
+            trial(jobs, job, "react-new-view__b", "react-new-view", 0, checksum="rev2")
+            err = io.StringIO()
+            with contextlib.redirect_stderr(err):
+                rows = self.run_script(jobs)
+        self.assertEqual(rows[0]["react"]["task_revisions"], 2)
+        self.assertIn("mixes 2 task revisions", err.getvalue())
 
 
 if __name__ == "__main__":

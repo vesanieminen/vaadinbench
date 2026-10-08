@@ -39,6 +39,7 @@ class Cell:
     seconds: list[float] = field(default_factory=list)
     costs: list[float] = field(default_factory=list)
     unfinished: int = 0
+    revisions: set[str] = field(default_factory=set)
 
     def summary(self) -> dict:
         return {
@@ -47,6 +48,7 @@ class Cell:
             "mean_agent_seconds": round(mean(self.seconds)) if self.seconds else None,
             "mean_cost_usd": round(mean(self.costs), 4) if self.costs else None,
             "unfinished": self.unfinished,
+            "task_revisions": len(self.revisions),
         }
 
 
@@ -61,9 +63,19 @@ def counterparts(tasks_dir: Path) -> dict[str, str]:
 
 
 def condition_of(job: str, conditions: list[str]) -> str:
-    """vaadin-bench.py names a job <condition>-<agent>-<stamp>, after an optional prefix."""
-    found = [c for c in conditions if f"{c}-" in f"{job}-"]
-    return max(found, key=len) if found else "?"
+    """vaadin-bench.py names a job [<prefix>-]<condition>-<agent>-<stamp>.
+
+    The prefix is free text and may itself contain a condition's name, so the
+    condition is the match that starts last — the one right before the agent —
+    and of two matches starting there, the longer (vaadin-skills-mcp, not
+    vaadin-skills).
+    """
+    best = None
+    for c in conditions:
+        start = f"-{job}-".rfind(f"-{c}-")
+        if start >= 0 and (best is None or (start, len(c)) > best[0]):
+            best = ((start, len(c)), c)
+    return best[1] if best else "?"
 
 
 def seconds(timing: dict | None) -> float | None:
@@ -93,6 +105,8 @@ def collect(roots: list[Path], tasks: set[str], conditions: list[str]):
                      or "?")
             job = path.parent.parent.name
             cell = cells[(condition_of(job, conditions), agent_info.get("name") or "?", model, task)]
+            if result.get("task_checksum"):
+                cell.revisions.add(result["task_checksum"])
 
             rewards = (result.get("verifier_result") or {}).get("rewards") or {}
             if "reward" not in rewards:
@@ -133,6 +147,17 @@ def main(argv: list[str]) -> int:
             rows.append({"condition": condition, "agent": agent, "model": model,
                          "vaadin_task": vaadin, "react_task": react,
                          "vaadin": v.summary(), "react": r.summary()})
+
+    # A task edited between runs is a different task: averaging across its
+    # revisions would compare nothing in particular. Say so rather than guess
+    # which revision was meant; narrow the job directories to compare one.
+    for row in rows:
+        for side in ("vaadin", "react"):
+            if row[side]["task_revisions"] > 1:
+                print(f"compare-frameworks: warning: {row[side + '_task']} under {row['condition']} / "
+                      f"{row['agent']} / {row['model']} mixes {row[side]['task_revisions']} task "
+                      "revisions; name only the job directories of one revision to compare it",
+                      file=sys.stderr)
 
     if args.json:
         json.dump(rows, sys.stdout, indent=2)
