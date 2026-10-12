@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <!-- Project from https://start.vaadin.com/0098e0d9-9dbe-45ec-94fc-2602ef578429 -->
+    <!-- Project from https://start.vaadin.com/c4109558-8be7-4fd9-b83c-92e6cf28d70a -->
     <groupId>com.example</groupId>
     <artifactId>app</artifactId>
     <version>1.0-SNAPSHOT</version>
@@ -9,7 +9,7 @@
     
     <properties>
         <java.version>25</java.version>
-        <vaadin.version>25.3.1</vaadin.version>
+        <vaadin.version>25.3.2</vaadin.version>
     </properties>
     
     <parent>
